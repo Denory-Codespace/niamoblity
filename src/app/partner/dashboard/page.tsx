@@ -129,40 +129,46 @@ export default function PartnerDashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {applications.slice(0, 3).map((app) => (
-              <div
-                key={app.id}
-                className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 overflow-hidden shrink-0">
-                    {app.driver?.avatarUrl ? (
-                      <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      'DR'
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#102A43]">{app.driver?.fullName}</span>
-                      <Badge variant="verified" size="sm" icon="check">Verified DL</Badge>
-                      <Badge variant="match" size="sm">{app.matchScorePct}% Match</Badge>
+            {applications.length > 0 ? (
+              applications.slice(0, 3).map((app) => (
+                <div
+                  key={app.id}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 overflow-hidden shrink-0">
+                      {app.driver?.avatarUrl ? (
+                        <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        'DR'
+                      )}
                     </div>
-                    <span className="text-xs text-slate-500 block">
-                      Target: {app.listing?.title} &bull; {app.driver?.experienceYears} yrs exp &bull; {app.driver?.locationSubcounty || "Nairobi"}
-                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[#102A43]">{app.driver?.fullName}</span>
+                        <Badge variant="verified" size="sm" icon="check">Verified DL</Badge>
+                        <Badge variant="match" size="sm">{app.matchScorePct}% Match</Badge>
+                      </div>
+                      <span className="text-xs text-slate-500 block">
+                        Target: {app.listing?.title} &bull; {app.driver?.experienceYears} yrs exp &bull; {app.driver?.locationSubcounty || "Nairobi"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Link href="/partner/applications">
+                      <Button variant="primary" size="sm">
+                        Review &amp; Shortlist
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <Link href="/partner/applications">
-                    <Button variant="primary" size="sm">
-                      Review &amp; Shortlist
-                    </Button>
-                  </Link>
-                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+                No driver applications received yet. They will appear here once drivers apply to your listings.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -180,25 +186,36 @@ export default function PartnerDashboardPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {vehicles.map((v) => (
-              <div key={v.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-200">
-                  <img src={v.photos[0]} alt={v.make} className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                      {v.registrationNumber}
-                    </span>
-                    <Badge variant="verified" size="sm">Verified</Badge>
+          {vehicles.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {vehicles.map((v) => (
+                <div key={v.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-200">
+                    <img src={v.photos[0]} alt={v.make} className="w-full h-full object-cover" />
                   </div>
-                  <h4 className="font-bold text-sm text-[#102A43] mt-1">{v.make} {v.model} ({v.year})</h4>
-                  <span className="text-[11px] text-slate-500 block">{v.primarySubcounty || "Nairobi"} &bull; {v.transmission}</span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                        {v.registrationNumber}
+                      </span>
+                      <Badge variant="verified" size="sm">Verified</Badge>
+                    </div>
+                    <h4 className="font-bold text-sm text-[#102A43] mt-1">{v.make} {v.model} ({v.year})</h4>
+                    <span className="text-[11px] text-slate-500 block">{v.primarySubcounty || "Nairobi"} &bull; {v.transmission}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 space-y-3">
+              <p>No vehicles registered in your fleet yet.</p>
+              <Link href="/partner/listings/new">
+                <Button variant="primary" size="sm">
+                  Register Your First Vehicle
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

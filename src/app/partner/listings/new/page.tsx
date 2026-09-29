@@ -11,7 +11,7 @@ import { Car, PlusCircle, ShieldCheck, CheckCircle } from 'lucide-react';
 
 export default function NewListingPage() {
   const router = useRouter();
-  const { partnerProfile } = useAuth();
+  const { partnerProfile, currentProfile, currentUser } = useAuth();
 
   const [make, setMake] = useState('Toyota');
   const [model, setModel] = useState('Fielder');
@@ -29,14 +29,17 @@ export default function NewListingPage() {
   const [minExp, setMinExp] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
+      const partnerId = partnerProfile?.id || `prt-${currentUser?.id || Date.now()}`;
+      const partnerName = currentProfile?.fullName || 'Verified Vehicle Partner';
+
       // 1. Add Vehicle
-      const newVehicle = marketplaceStore.addVehicle({
-        partnerId: partnerProfile?.id || 'prt-01',
+      const newVehicle = await marketplaceStore.addVehicle({
+        partnerId,
         make,
         model,
         year,
@@ -55,9 +58,9 @@ export default function NewListingPage() {
       });
 
       // 2. Add Listing
-      marketplaceStore.addListing({
+      await marketplaceStore.addListing({
         vehicleId: newVehicle.id,
-        partnerId: partnerProfile?.id || 'prt-01',
+        partnerId,
         title: `${make} ${model} ${year} - ${subcounty} Driver Opportunity`,
         description,
         county: 'Nairobi',
@@ -77,17 +80,21 @@ export default function NewListingPage() {
         publishedAt: new Date().toISOString(),
         vehicle: newVehicle,
         partner: {
-          id: partnerProfile?.id || 'prt-01',
-          fullName: 'David Kamau (Apex Fleets)',
-          ratingAvg: 4.9,
-          ratingCount: 32,
+          id: partnerId,
+          fullName: partnerName,
+          ratingAvg: 5.0,
+          ratingCount: 0,
           isVerified: true,
         },
       });
 
       setIsSubmitting(false);
       router.push('/vehicles');
-    }, 600);
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
+      router.push('/vehicles');
+    }
   };
 
   return (

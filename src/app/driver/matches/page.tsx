@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
 import { matchingService } from '@/lib/matching/matching-service';
@@ -20,9 +21,10 @@ import {
 } from 'lucide-react';
 
 export default function DriverMatchesPage() {
-  const { driverProfile, currentProfile } = useAuth();
+  const { driverProfile, currentProfile, isAuthenticated } = useAuth();
   const [rankedListings, setRankedListings] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     if (driverProfile) {
@@ -39,9 +41,21 @@ export default function DriverMatchesPage() {
 
   if (!driverProfile) {
     return (
-      <div className="max-w-4xl mx-auto py-16 px-4 text-center space-y-4">
-        <h2 className="text-2xl font-bold">Please switch to the Driver Persona</h2>
-        <p className="text-slate-500 text-sm">Use the top bar to select Driver persona to test algorithmic matching.</p>
+      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto">
+          <Sparkles className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-[#102A43]">Driver Profile Required</h2>
+        <p className="text-slate-500 text-xs leading-relaxed">
+          Create or sign into your Driver profile to view personalized algorithmic compatibility scores with Nairobi vehicle listings.
+        </p>
+        <div className="pt-2">
+          <Link href="/vehicles">
+            <Button variant="primary" size="md">
+              Browse Vehicles
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

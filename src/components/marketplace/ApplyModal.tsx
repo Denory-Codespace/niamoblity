@@ -18,34 +18,33 @@ interface ApplyModalProps {
 }
 
 export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalProps) {
-  const { driverProfile, currentProfile } = useAuth();
+  const { driverProfile, currentProfile, currentUser } = useAuth();
   const [coverNote, setCoverNote] = useState(
-    "Hello! I am an experienced driver registered on Uber and Bolt. I maintain consistent daily remittance and keep vehicles in pristine condition. I would love to drive this vehicle."
+    "Hello! I am an experienced driver registered on mobility platforms. I maintain consistent daily remittance and keep vehicles in pristine condition. I would love to drive this vehicle."
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   if (!listing) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      try {
-        marketplaceStore.applyToListing(
-          listing.id,
-          driverProfile?.id || "drv-01",
-          coverNote
-        );
-        setIsSubmitting(false);
-        setIsSubmitted(true);
-        if (onSuccess) onSuccess();
-      } catch (err) {
-        setIsSubmitting(false);
-        alert("Application failed: " + (err as Error).message);
-      }
-    }, 600);
+    try {
+      const driverId = driverProfile?.id || (marketplaceStore.drivers[0]?.id) || `drv-${currentUser?.id || Date.now()}`;
+      await marketplaceStore.applyToListing(
+        listing.id,
+        driverId,
+        coverNote
+      );
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      setIsSubmitting(false);
+      alert("Application failed: " + (err as Error).message);
+    }
   };
 
   const handleClose = () => {
@@ -105,7 +104,7 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
           <div className="flex items-center gap-2 p-3 bg-[#DDF5E3]/60 border border-[#A7F3D0] rounded-xl text-xs text-[#065F46]">
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span>
-              Applying as <strong>{currentProfile?.fullName || "Samuel Mwangi"}</strong> (Identity &amp; License Verified).
+              Applying as <strong>{currentProfile?.fullName || "Verified Driver"}</strong> (Identity &amp; License Verified).
             </span>
           </div>
 

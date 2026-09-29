@@ -207,6 +207,25 @@ export default function VehiclesMarketplacePage() {
               />
             ))}
           </div>
+        ) : listings.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-soft max-w-lg mx-auto space-y-5">
+            <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto">
+              <Car className="w-8 h-8" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-bold text-[#102A43]">No Vehicles Listed Yet</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                The marketplace currently has 0 active listings. Register your vehicle as a Partner to publish the first driver opportunity in Nairobi!
+              </p>
+            </div>
+            <div className="pt-2">
+              <a href="/partner/listings/new">
+                <Button variant="primary" size="md">
+                  List a Vehicle Opportunity
+                </Button>
+              </a>
+            </div>
+          </div>
         ) : (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 max-w-md mx-auto space-y-4">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">

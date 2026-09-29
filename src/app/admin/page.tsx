@@ -125,53 +125,75 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {verificationDocs.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-[#102A43] font-mono">{doc.documentType}</span>
-                      <span className="text-xs font-bold text-slate-600">({doc.documentNumber || 'Ref doc'})</span>
+              {verificationDocs.length > 0 ? (
+                verificationDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-[#102A43] font-mono">{doc.documentType}</span>
+                        <span className="text-xs font-bold text-slate-600">({doc.documentNumber || 'Ref doc'})</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">
+                        Uploaded by #{doc.userId} &bull; File: <strong className="text-blue-600">{doc.fileName}</strong>
+                      </span>
                     </div>
-                    <span className="text-[11px] text-slate-500 block">
-                      Uploaded by #{doc.userId} &bull; File: <strong className="text-blue-600">{doc.fileName}</strong>
-                    </span>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {doc.status === 'UNDER_REVIEW' ? (
-                      <>
-                        <Button
-                          variant="soft-green"
+                    <div className="flex items-center gap-2">
+                      {doc.status === 'UNDER_REVIEW' ? (
+                        <>
+                          <Button
+                            variant="soft-green"
+                            size="sm"
+                            onClick={() => handleDocAction(doc.id, 'VERIFIED')}
+                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 hover:bg-rose-50"
+                            onClick={() => handleDocAction(doc.id, 'REJECTED')}
+                            leftIcon={<XCircle className="w-3.5 h-3.5" />}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      ) : (
+                        <Badge
+                          variant={doc.status === 'VERIFIED' ? 'verified' : 'rejected'}
                           size="sm"
-                          onClick={() => handleDocAction(doc.id, 'VERIFIED')}
-                          leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                         >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-rose-600 hover:bg-rose-50"
-                          onClick={() => handleDocAction(doc.id, 'REJECTED')}
-                          leftIcon={<XCircle className="w-3.5 h-3.5" />}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    ) : (
-                      <Badge
-                        variant={doc.status === 'VERIFIED' ? 'verified' : 'rejected'}
-                        size="sm"
-                      >
-                        {doc.status}
-                      </Badge>
-                    )}
+                          {doc.status}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+                  No documents currently in the verification queue.
                 </div>
-              ))}
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-400">Database Management</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm('Clear all local store data and reset marketplace to 0?')) {
+                    marketplaceStore.clearAllData();
+                    window.location.reload();
+                  }
+                }}
+              >
+                Reset All Data to Zero (Clean Slate)
+              </Button>
             </div>
           </div>
 

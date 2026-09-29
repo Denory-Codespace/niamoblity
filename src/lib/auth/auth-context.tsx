@@ -1,7 +1,7 @@
 'use client';
 
 // ==============================================================================
-// nia mobility - Authentication & Role Context
+// nia mobility - Clean Authentication & Role Context
 // Developed by Denory Codespace
 // ==============================================================================
 
@@ -16,51 +16,86 @@ interface AuthContextType {
   partnerProfile: PartnerProfile | null;
   role: UserRole | 'GUEST';
   setRole: (role: UserRole | 'GUEST') => void;
-  switchPersona: (persona: 'DRIVER' | 'PARTNER' | 'ADMIN' | 'GUEST') => void;
-  isAuthenticated: boolean;
+  registerUser: (params: any) => void;
+  loginAs: (role: UserRole) => void;
   logout: () => void;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Default to Driver persona for instant interactive marketplace testing
-  const [selectedRole, setSelectedRole] = useState<UserRole | 'GUEST'>('DRIVER');
-  const [currentUser, setCurrentUser] = useState<User | null>(marketplaceStore.users[3]); // Samuel Mwangi (Driver)
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(marketplaceStore.profiles[3]);
-  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(marketplaceStore.drivers[0]);
+  const [role, setRole] = useState<UserRole | 'GUEST'>('GUEST');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
 
-  const switchPersona = (persona: 'DRIVER' | 'PARTNER' | 'ADMIN' | 'GUEST') => {
-    setSelectedRole(persona);
-    if (persona === 'DRIVER') {
-      const user = marketplaceStore.users.find(u => u.id === 'usr-driver-01') || null;
-      setCurrentUser(user);
-      setCurrentProfile(marketplaceStore.profiles.find(p => p.userId === user?.id) || null);
-      setDriverProfile(marketplaceStore.drivers.find(d => d.userId === user?.id) || null);
+  useEffect(() => {
+    // Check if user exists in store
+    if (marketplaceStore.users.length > 0 && !currentUser) {
+      const firstUser = marketplaceStore.users[0];
+      const firstProfile = marketplaceStore.profiles[0] || null;
+      setCurrentUser(firstUser);
+      setCurrentProfile(firstProfile);
+      setRole(firstUser.role);
+
+      if (firstUser.role === 'DRIVER') {
+        setDriverProfile(marketplaceStore.drivers.find(d => d.userId === firstUser.id) || null);
+      } else if (firstUser.role === 'PARTNER') {
+        setPartnerProfile(marketplaceStore.partners.find(p => p.userId === firstUser.id) || null);
+      }
+    }
+  }, []);
+
+  const registerUser = async (params: {
+    fullName: string;
+    phone: string;
+    email: string;
+    role: UserRole;
+    county?: string;
+    subcounty?: string;
+    experienceYears?: number;
+    companyName?: string;
+  }) => {
+    const { user, profile } = await marketplaceStore.registerUser(params);
+    setCurrentUser(user);
+    setCurrentProfile(profile);
+    setRole(user.role);
+
+    if (user.role === 'DRIVER') {
+      setDriverProfile(marketplaceStore.drivers.find(d => d.userId === user.id) || null);
       setPartnerProfile(null);
-    } else if (persona === 'PARTNER') {
-      const user = marketplaceStore.users.find(u => u.id === 'usr-partner-01') || null;
-      setCurrentUser(user);
-      setCurrentProfile(marketplaceStore.profiles.find(p => p.userId === user?.id) || null);
-      setPartnerProfile(marketplaceStore.partners.find(p => p.userId === user?.id) || null);
+    } else if (user.role === 'PARTNER') {
+      setPartnerProfile(marketplaceStore.partners.find(p => p.userId === user.id) || null);
       setDriverProfile(null);
-    } else if (persona === 'ADMIN') {
-      const user = marketplaceStore.users.find(u => u.id === 'usr-admin-01') || null;
-      setCurrentUser(user);
-      setCurrentProfile(marketplaceStore.profiles.find(p => p.userId === user?.id) || null);
-      setDriverProfile(null);
-      setPartnerProfile(null);
+    }
+  };
+
+  const loginAs = (targetRole: UserRole) => {
+    const existing = marketplaceStore.users.find(u => u.role === targetRole);
+    if (existing) {
+      setCurrentUser(existing);
+      setCurrentProfile(marketplaceStore.profiles.find(p => p.userId === existing.id) || null);
+      setRole(existing.role);
+      if (existing.role === 'DRIVER') {
+        setDriverProfile(marketplaceStore.drivers.find(d => d.userId === existing.id) || null);
+        setPartnerProfile(null);
+      } else if (existing.role === 'PARTNER') {
+        setPartnerProfile(marketplaceStore.partners.find(p => p.userId === existing.id) || null);
+        setDriverProfile(null);
+      }
     } else {
-      setCurrentUser(null);
-      setCurrentProfile(null);
-      setDriverProfile(null);
-      setPartnerProfile(null);
+      setRole(targetRole);
     }
   };
 
   const logout = () => {
-    switchPersona('GUEST');
+    setCurrentUser(null);
+    setCurrentProfile(null);
+    setDriverProfile(null);
+    setPartnerProfile(null);
+    setRole('GUEST');
   };
 
   return (
@@ -70,11 +105,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentProfile,
         driverProfile,
         partnerProfile,
-        role: selectedRole,
-        setRole: setSelectedRole,
-        switchPersona,
-        isAuthenticated: selectedRole !== 'GUEST' && currentUser !== null,
+        role,
+        setRole,
+        registerUser,
+        loginAs,
         logout,
+        isAuthenticated: role !== 'GUEST' && currentUser !== null,
       }}
     >
       {children}
