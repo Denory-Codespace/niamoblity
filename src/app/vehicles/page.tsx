@@ -28,10 +28,15 @@ export default function VehiclesMarketplacePage() {
   const [maxDailyTarget, setMaxDailyTarget] = useState<number>(5000);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
-  const [listings, setListings] = useState(marketplaceStore.getListings(driverProfile || undefined));
-  const [savedIds, setSavedIds] = useState<string[]>(marketplaceStore.savedListingIds);
+  const [mounted, setMounted] = useState(false);
+  const [listings, setListings] = useState<any[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
+    setMounted(true);
+    setListings(marketplaceStore.getListings(driverProfile || undefined));
+    setSavedIds([...marketplaceStore.savedListingIds]);
+
     const unsubscribe = marketplaceStore.subscribe(() => {
       setListings(marketplaceStore.getListings(driverProfile || undefined));
       setSavedIds([...marketplaceStore.savedListingIds]);
@@ -99,7 +104,7 @@ export default function VehiclesMarketplacePage() {
               Marketplace Liquidity
             </span>
             <span className="text-sm font-extrabold text-[#102A43]">
-              {filteredListings.length} Vehicles Available
+              {mounted ? filteredListings.length : 0} Vehicles Available
             </span>
           </div>
         </div>

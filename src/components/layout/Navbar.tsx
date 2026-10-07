@@ -25,14 +25,22 @@ import {
 } from 'lucide-react';
 import { marketplaceStore } from '@/lib/db/store';
 import { UserRole } from '@/types';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { VerificationModal } from '@/components/verification/VerificationModal';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { role, currentProfile, isAuthenticated, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authDefaultRole, setAuthDefaultRole] = useState<UserRole>('DRIVER');
   const [authModalMode, setAuthModalMode] = useState<'LOGIN' | 'REGISTER'>('REGISTER');
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const openRegister = (targetRole: UserRole) => {
     setAuthDefaultRole(targetRole);
@@ -232,8 +240,23 @@ export default function Navbar() {
                 </Link>
               ) : null}
 
+              {/* Notifications & Verification */}
+              {mounted && isAuthenticated && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setVerificationModalOpen(true)}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition-colors"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Get Verified</span>
+                  </button>
+
+                  <NotificationBell />
+                </div>
+              )}
+
               {/* Profile Avatar */}
-              {isAuthenticated && currentProfile && (
+              {mounted && isAuthenticated && currentProfile && (
                 <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
                   <Link
                     href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
@@ -355,6 +378,11 @@ export default function Navbar() {
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authDefaultRole}
         initialMode={authModalMode}
+      />
+
+      <VerificationModal
+        isOpen={verificationModalOpen}
+        onClose={() => setVerificationModalOpen(false)}
       />
     </>
   );

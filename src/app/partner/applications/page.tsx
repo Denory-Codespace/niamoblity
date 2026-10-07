@@ -18,13 +18,18 @@ import {
   MessageSquare,
   ArrowRight,
 } from 'lucide-react';
+import { ChatModal } from '@/components/chat/ChatModal';
 
 export default function PartnerApplicationsPage() {
   const { currentProfile } = useAuth();
-  const [applications, setApplications] = useState<Application[]>(marketplaceStore.applications);
+  const [mounted, setMounted] = useState(false);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
+  const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
 
   useEffect(() => {
+    setMounted(true);
+    setApplications([...marketplaceStore.applications]);
     const unsubscribe = marketplaceStore.subscribe(() => {
       setApplications([...marketplaceStore.applications]);
     });
@@ -167,13 +172,27 @@ export default function PartnerApplicationsPage() {
                     </Button>
                   )}
 
-                  {(app.status === 'SUBMITTED' || app.status === 'SHORTLISTED') && (
+                  <Button
+                    variant="soft-blue"
+                    size="sm"
+                    onClick={() => {
+                      if (app.status === 'SUBMITTED') {
+                        handleStatusChange(app.id, 'INTERVIEW', 'Interview and chat opened by partner.');
+                      }
+                      setActiveChatApp(app);
+                    }}
+                    leftIcon={<MessageSquare className="w-4 h-4 text-blue-600" />}
+                  >
+                    Chat with Driver
+                  </Button>
+
+                  {app.status === 'SUBMITTED' && (
                     <Button
-                      variant="soft-blue"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleStatusChange(app.id, 'INTERVIEW', 'Interview invited.')}
+                      onClick={() => handleStatusChange(app.id, 'SHORTLISTED', 'Partner reviewed profile and shortlisted.')}
                     >
-                      Invite to Interview / Chat
+                      Shortlist Candidate
                     </Button>
                   )}
 
@@ -211,6 +230,21 @@ export default function PartnerApplicationsPage() {
             </div>
           ))}
         </div>
+
+        {/* Real-time Direct Chat Modal */}
+        {activeChatApp && (
+          <ChatModal
+            isOpen={!!activeChatApp}
+            onClose={() => setActiveChatApp(null)}
+            driverId={activeChatApp.driverId}
+            partnerId={activeChatApp.partnerId}
+            driverName={activeChatApp.driver?.fullName || 'Driver'}
+            partnerName={activeChatApp.listing?.partner?.fullName || activeChatApp.partner?.fullName || currentProfile?.fullName || 'Vehicle Partner'}
+            listingId={activeChatApp.listingId}
+            listingTitle={activeChatApp.listing?.title}
+            otherUserPhone={activeChatApp.driver?.phone}
+          />
+        )}
       </div>
     </div>
   );

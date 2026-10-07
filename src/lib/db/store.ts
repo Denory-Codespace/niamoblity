@@ -103,6 +103,10 @@ class MarketplaceStore {
       localStorage.setItem('nia_listings', JSON.stringify(this.listings));
       localStorage.setItem('nia_applications', JSON.stringify(this.applications));
       localStorage.setItem('nia_agreements', JSON.stringify(this.agreements));
+      localStorage.setItem('nia_conversations', JSON.stringify(this.conversations));
+      localStorage.setItem('nia_messages', JSON.stringify(this.messages));
+      localStorage.setItem('nia_notifications', JSON.stringify(this.notifications));
+      localStorage.setItem('nia_verifications', JSON.stringify(this.verificationDocs));
       localStorage.setItem('nia_saved', JSON.stringify(this.savedListingIds));
     } catch (e) {
       console.warn('Storage save error:', e);
@@ -127,10 +131,223 @@ class MarketplaceStore {
       if (a) this.applications = JSON.parse(a);
       const ag = localStorage.getItem('nia_agreements');
       if (ag) this.agreements = JSON.parse(ag);
+      const conv = localStorage.getItem('nia_conversations');
+      if (conv) this.conversations = JSON.parse(conv);
+      const msg = localStorage.getItem('nia_messages');
+      if (msg) this.messages = JSON.parse(msg);
+      const notifs = localStorage.getItem('nia_notifications');
+      if (notifs) this.notifications = JSON.parse(notifs);
+      const verifs = localStorage.getItem('nia_verifications');
+      if (verifs) this.verificationDocs = JSON.parse(verifs);
       const s = localStorage.getItem('nia_saved');
       if (s) this.savedListingIds = JSON.parse(s);
     } catch (e) {
       console.warn('Storage load error:', e);
+    }
+  }
+
+  // --- Real-time In-App Notifications ---
+  public addNotification(item: {
+    userId: string;
+    title: string;
+    message: string;
+    type: 'APPLICATION' | 'AGREEMENT' | 'MESSAGE' | 'VERIFICATION' | 'SYSTEM';
+    linkUrl?: string;
+  }) {
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: item.userId,
+      title: item.title,
+      message: item.message,
+      type: item.type,
+      linkUrl: item.linkUrl,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+    this.notifications.unshift(notif);
+    this.notify();
+    return notif;
+  }
+
+  public getNotificationsByUser(userId: string): NotificationItem[] {
+    return this.notifications.filter(n => n.userId === userId || n.userId === 'ALL');
+  }
+
+  public markNotificationAsRead(id: string) {
+    const notif = this.notifications.find(n => n.id === id);
+    if (notif) {
+      notif.isRead = true;
+      this.notify();
+    }
+  }
+
+  public markAllNotificationsAsRead(userId: string) {
+    this.notifications.forEach(n => {
+      if (n.userId === userId || n.userId === 'ALL') {
+        n.isRead = true;
+      }
+    });
+    this.notify();
+  }
+
+  // --- Real-time In-App Chat / Messaging ---
+  public getOrCreateConversation(params: {
+    driverId: string;
+    partnerId: string;
+    driverName: string;
+    partnerName: string;
+    listingId?: string;
+    listingTitle?: string;
+  }): Conversation {
+    let conv = this.conversations.find(
+      c => c.driverId === params.driverId && c.partnerId === params.partnerId && (!params.listingId || c.listingId === params.listingId)
+    );
+
+    if (!conv) {
+      conv = {
+        id: `conv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        driverId: params.driverId,
+        partnerId: params.partnerId,
+        driverName: params.driverName,
+        partnerName: params.partnerName,
+        listingId: params.listingId,
+        listingTitle: params.listingTitle,
+        lastMessage: 'Conversation started',
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 0,
+        createdAt: new Date().toISOString(),
+      };
+      this.conversations.unshift(conv);
+      this.notify();
+    }
+
+    return conv;
+  }
+
+  public getMessages(conversationId: string): Message[] {
+    return this.messages.filter(m => m.conversationId === conversationId);
+  }
+
+  public sendMessage(params: {
+    conversationId: string;
+    senderId: string;
+    senderName: string;
+    senderRole: UserRole;
+    recipientUserId: string;
+    content: string;
+  }): Message {
+    const newMsg: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      conversationId: params.conversationId,
+      senderId: params.senderId,
+      senderName: params.senderName,
+      senderRole: params.senderRole,
+      content: params.content,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.messages.push(newMsg);
+
+    const conv = this.conversations.find(c => c.id === params.conversationId);
+    if (conv) {
+      conv.lastMessage = params.content;
+      conv.lastMessageAt = new Date().toISOString();
+      conv.unreadCount += 1;
+    }
+
+    // Trigger in-app notification for recipient
+    if (params.recipientUserId) {
+      this.addNotification({
+        userId: params.recipientUserId,
+        title: `New Message from ${params.senderName}`,
+        message: params.content.length > 60 ? params.content.substring(0, 60) + '...' : params.content,
+        type: 'MESSAGE',
+        linkUrl: `/driver/applications`,
+      });
+    }
+
+    this.notify();
+    return newMsg;
+  }
+
+  public getConversationsForUser(userId: string, role: UserRole): Conversation[] {
+    if (role === 'DRIVER') {
+      const driver = this.drivers.find(d => d.userId === userId);
+      return this.conversations.filter(c => c.driverId === (driver?.id || userId));
+    } else if (role === 'PARTNER') {
+      const partner = this.partners.find(p => p.userId === userId);
+      return this.conversations.filter(c => c.partnerId === (partner?.id || userId));
+    }
+    return this.conversations;
+  }
+
+  // --- Document Verification ---
+  public submitVerificationDocument(params: {
+    userId: string;
+    documentType: any;
+    fileName: string;
+    fileUrl?: string;
+    documentNumber?: string;
+  }): VerificationDocument {
+    const doc: VerificationDocument = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: params.userId,
+      documentType: params.documentType,
+      fileName: params.fileName,
+      fileUrl: params.fileUrl || '/placeholder-doc.pdf',
+      documentNumber: params.documentNumber,
+      status: 'UNDER_REVIEW',
+      createdAt: new Date().toISOString(),
+    };
+
+    this.verificationDocs.unshift(doc);
+
+    this.addNotification({
+      userId: params.userId,
+      title: 'Document Submitted for Review',
+      message: `Your ${params.documentType.replace('_', ' ')} has been uploaded and is under review.`,
+      type: 'VERIFICATION',
+    });
+
+    this.notify();
+    return doc;
+  }
+
+  public getVerificationDocs(userId: string): VerificationDocument[] {
+    return this.verificationDocs.filter(d => d.userId === userId);
+  }
+
+  public verifyDocument(docId: string, status: any, rejectionReason?: string) {
+    const doc = this.verificationDocs.find(d => d.id === docId);
+    if (doc) {
+      doc.status = status;
+      doc.rejectionReason = rejectionReason;
+      if (status === 'VERIFIED') {
+        doc.verifiedAt = new Date().toISOString();
+        // Update user or driver verification flags
+        const driver = this.drivers.find(d => d.userId === doc.userId);
+        if (driver) {
+          if (doc.documentType === 'NATIONAL_ID') driver.identityVerified = true;
+          if (doc.documentType === 'DRIVING_LICENSE' || doc.documentType === 'PSV_BADGE') driver.licenseVerified = true;
+        }
+        const partner = this.partners.find(p => p.userId === doc.userId);
+        if (partner) {
+          if (doc.documentType === 'NATIONAL_ID') partner.identityVerified = true;
+          if (doc.documentType === 'LOGBOOK' || doc.documentType === 'INSPECTION_CERTIFICATE') partner.businessVerified = true;
+        }
+      }
+
+      this.addNotification({
+        userId: doc.userId,
+        title: status === 'VERIFIED' ? 'Document Approved 🎉' : 'Document Review Notice',
+        message: status === 'VERIFIED'
+          ? `Your ${doc.documentType.replace('_', ' ')} has been successfully verified.`
+          : `Your document review returned: ${rejectionReason || 'Please resubmit with a clearer scan.'}`,
+        type: 'VERIFICATION',
+      });
+
+      this.notify();
     }
   }
 
@@ -156,6 +373,17 @@ class MarketplaceStore {
     } else if (params.role === 'PARTNER' && res.roleRecord) {
       this.partners.unshift(res.roleRecord);
     }
+
+    // Welcome Notification
+    this.addNotification({
+      userId: res.user.id,
+      title: `Karibu to nia mobility, ${params.fullName}! 🇰🇪`,
+      message: params.role === 'DRIVER'
+        ? 'Your driver account is active. Browse verified vehicle listings and apply directly.'
+        : 'Your partner account is active. List your vehicles and connect with vetted Nairobi drivers.',
+      type: 'SYSTEM',
+      linkUrl: params.role === 'DRIVER' ? '/vehicles' : '/partner/listings/new',
+    });
 
     this.notify();
     return { user: res.user, profile: res.profile, supabaseSynced: res.supabaseSynced };
@@ -228,7 +456,27 @@ class MarketplaceStore {
     const partner = this.partners.find(p => p.id === listing.partnerId);
     if (partner) {
       partner.totalVehiclesCount = this.vehicles.filter(v => v.partnerId === listing.partnerId).length;
+
+      // Notification for partner
+      this.addNotification({
+        userId: partner.userId,
+        title: 'Listing Published Successfully 🚗',
+        message: `Your listing "${newListing.title}" is now active in ${newListing.county}.`,
+        type: 'SYSTEM',
+        linkUrl: '/partner/dashboard',
+      });
     }
+
+    // Real-time alert to active drivers matching this vehicle
+    this.drivers.forEach(d => {
+      this.addNotification({
+        userId: d.userId,
+        title: `New Vehicle Opportunity: ${newListing.title}`,
+        message: `A ${newListing.vehicle?.make || 'vehicle'} (${newListing.subcounty || 'Nairobi'}) is available for daily target KES ${newListing.targetAmountKes}.`,
+        type: 'APPLICATION',
+        linkUrl: '/vehicles',
+      });
+    });
 
     this.notify();
     return newListing;
@@ -294,6 +542,27 @@ class MarketplaceStore {
     listing.applicationsCount += 1;
     this.applications.unshift(newApp);
 
+    // Notify Partner
+    const partner = this.partners.find(p => p.id === listing.partnerId);
+    if (partner) {
+      this.addNotification({
+        userId: partner.userId,
+        title: `New Driver Application (${matchBreakdown.totalScorePct}% Match)`,
+        message: `${driverProfile?.fullName || 'A driver'} applied for "${listing.title}".`,
+        type: 'APPLICATION',
+        linkUrl: '/partner/applications',
+      });
+    }
+
+    // Notify Driver
+    this.addNotification({
+      userId: driver.userId,
+      title: 'Application Submitted Successfully',
+      message: `Your application for "${listing.title}" has been sent to the partner for review.`,
+      type: 'APPLICATION',
+      linkUrl: '/driver/applications',
+    });
+
     this.notify();
     return newApp;
   }
@@ -337,6 +606,24 @@ class MarketplaceStore {
         });
         this.agreements.unshift(newAgr);
       }
+    }
+
+    // Trigger notification to the driver
+    const driver = this.drivers.find(d => d.id === app.driverId);
+    if (driver) {
+      const statusLabels: Record<string, string> = {
+        SHORTLISTED: 'Shortlisted ✨',
+        INTERVIEW: 'Invited to Interview / Chat 💬',
+        ACCEPTED: 'Application Accepted 🎉 Operating Agreement Ready',
+        REJECTED: 'Application Declined',
+      };
+      this.addNotification({
+        userId: driver.userId,
+        title: statusLabels[newStatus] || `Status Update: ${newStatus}`,
+        message: reason || `Your application status for "${app.listing?.title || 'the vehicle'}" is now ${newStatus}.`,
+        type: newStatus === 'ACCEPTED' ? 'AGREEMENT' : 'APPLICATION',
+        linkUrl: newStatus === 'ACCEPTED' ? '/driver/agreements' : '/driver/applications',
+      });
     }
 
     this.notify();

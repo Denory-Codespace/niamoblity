@@ -18,12 +18,16 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
+import { ChatModal } from '@/components/chat/ChatModal';
 
 export default function DriverApplicationsPage() {
   const { driverProfile, isAuthenticated, role, loginAsRole } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
 
   useEffect(() => {
+    setMounted(true);
     const update = () => {
       if (driverProfile) {
         setApplications(marketplaceStore.applications.filter(a => a.driverId === driverProfile.id));
@@ -170,17 +174,21 @@ export default function DriverApplicationsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="soft-blue"
+                      size="sm"
+                      onClick={() => setActiveChatApp(app)}
+                      leftIcon={<MessageSquare className="w-4 h-4 text-blue-600" />}
+                    >
+                      Chat with Partner
+                    </Button>
+
                     {app.status === 'ACCEPTED' && (
                       <Link href="/driver/agreements">
                         <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-4 h-4 text-[#FFF1B8]" />}>
                           View Operating Agreement
                         </Button>
                       </Link>
-                    )}
-                    {(app.status === 'SHORTLISTED' || app.status === 'INTERVIEW') && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-emerald-700">Interview Unlocked</span>
-                      </div>
                     )}
                   </div>
                 </div>
@@ -204,6 +212,21 @@ export default function DriverApplicationsPage() {
               </Button>
             </Link>
           </div>
+        )}
+
+        {/* Real-time Direct Chat Modal */}
+        {activeChatApp && (
+          <ChatModal
+            isOpen={!!activeChatApp}
+            onClose={() => setActiveChatApp(null)}
+            driverId={activeChatApp.driverId}
+            partnerId={activeChatApp.partnerId}
+            driverName={activeChatApp.driver?.fullName || 'Driver'}
+            partnerName={activeChatApp.listing?.partner?.fullName || activeChatApp.partner?.fullName || 'Vehicle Partner'}
+            listingId={activeChatApp.listingId}
+            listingTitle={activeChatApp.listing?.title}
+            otherUserPhone={activeChatApp.partner?.phone}
+          />
         )}
       </div>
     </div>

@@ -25,12 +25,14 @@ import {
 
 export default function HomePage() {
   const { role, driverProfile, isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [listings, setListings] = useState<any[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authDefaultRole, setAuthDefaultRole] = useState<'DRIVER' | 'PARTNER'>('DRIVER');
 
   useEffect(() => {
+    setMounted(true);
     setListings(marketplaceStore.getListings(driverProfile || undefined));
     setSavedIds([...marketplaceStore.savedListingIds]);
 
