@@ -23,6 +23,7 @@ import {
 } from '@/types';
 import { matchingService } from '../matching/matching-service';
 import { dbService } from './db-service';
+import { supabase } from '../supabase/client';
 
 class MarketplaceStore {
   public users: User[] = [];
@@ -41,10 +42,12 @@ class MarketplaceStore {
 
   private listeners: Set<() => void> = new Set();
   private isLoaded = false;
+  private realtimeChannel: any = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.initStore();
+      this.setupRealtimeSync();
     }
   }
 
@@ -62,10 +65,10 @@ class MarketplaceStore {
     this.listeners.forEach(fn => fn());
   }
 
-  private async initStore() {
+  public async initStore() {
     this.loadFromStorage();
     try {
-      // Pull fresh data from Supabase
+      // Pull fresh data from Supabase as single source of truth
       const [remoteUsers, remoteProfiles, remoteDrivers, remotePartners, remoteVehicles, remoteListings, remoteApplications, remoteAgreements] = await Promise.all([
         dbService.getUsers(),
         dbService.getProfiles(),
@@ -77,20 +80,35 @@ class MarketplaceStore {
         dbService.getAgreements(),
       ]);
 
-      if (remoteUsers.length > 0) this.users = remoteUsers;
-      if (remoteProfiles.length > 0) this.profiles = remoteProfiles;
-      if (remoteDrivers.length > 0) this.drivers = remoteDrivers;
-      if (remotePartners.length > 0) this.partners = remotePartners;
-      if (remoteVehicles.length > 0) this.vehicles = remoteVehicles;
-      if (remoteListings.length > 0) this.listings = remoteListings;
-      if (remoteApplications.length > 0) this.applications = remoteApplications;
-      if (remoteAgreements.length > 0) this.agreements = remoteAgreements;
+      // If we received valid responses from Supabase, sync exact state (including 0 items if database was cleared)
+      this.users = remoteUsers;
+      this.profiles = remoteProfiles;
+      this.drivers = remoteDrivers;
+      this.partners = remotePartners;
+      this.vehicles = remoteVehicles;
+      this.listings = remoteListings;
+      this.applications = remoteApplications;
+      this.agreements = remoteAgreements;
 
       this.notify();
     } catch (e) {
       console.warn('Initial remote fetch notice:', e);
     }
     this.isLoaded = true;
+  }
+
+  private setupRealtimeSync() {
+    if (typeof window === 'undefined' || this.realtimeChannel) return;
+    try {
+      this.realtimeChannel = supabase
+        .channel('nia-realtime-hub')
+        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+          this.initStore();
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase Realtime subscription note:', e);
+    }
   }
 
   private saveToStorage() {

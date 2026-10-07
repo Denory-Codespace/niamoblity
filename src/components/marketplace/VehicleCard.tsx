@@ -19,6 +19,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { marketplaceStore } from '@/lib/db/store';
+import { useAuth } from '@/lib/auth/auth-context';
 import { ApplyModal } from './ApplyModal';
 
 interface VehicleCardProps {
@@ -29,9 +30,13 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveToggle }: VehicleCardProps) {
+  const { role, partnerProfile } = useAuth();
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const vehicle = listing.vehicle;
   const photoUrl = vehicle?.photos?.[0] || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80';
+
+  const isMyListing = role === 'PARTNER' && partnerProfile && listing.partnerId === partnerProfile.id;
+  const isPartner = role === 'PARTNER';
 
   return (
     <>
@@ -133,13 +138,25 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
               </span>
             </div>
 
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setApplyModalOpen(true)}
-            >
-              Apply Now
-            </Button>
+            {isMyListing ? (
+              <Link href="/partner/dashboard">
+                <Button variant="outline" size="sm" className="border-amber-500 text-amber-800 hover:bg-amber-50">
+                  Manage Listing
+                </Button>
+              </Link>
+            ) : isPartner ? (
+              <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1.5 rounded-xl">
+                Partner View
+              </span>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setApplyModalOpen(true)}
+              >
+                Apply Now
+              </Button>
+            )}
           </div>
         </div>
       </div>

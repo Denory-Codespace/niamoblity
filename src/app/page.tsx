@@ -58,57 +58,138 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DDF5E3] border border-[#A7F3D0] text-[#065F46] text-xs font-bold tracking-wide">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Kenya&apos;s Verified Driver ↔ Partner Mobility Marketplace</span>
-              </div>
+              {/* Role-Aware Badges & Headlines */}
+              {mounted && isAuthenticated && role === 'PARTNER' ? (
+                <>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold tracking-wide">
+                    <Car className="w-4 h-4 text-amber-600" />
+                    <span>Vehicle Partner Command Center &bull; Nairobi</span>
+                  </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#102A43] tracking-tight font-heading leading-[1.1]">
-                Find a Car. <br className="hidden sm:inline" />
-                Find a Driver. <br />
-                <span className="text-blue-600">Drive &amp; Earn.</span>
-              </h1>
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#102A43] tracking-tight font-heading leading-[1.1]">
+                    Manage Your Fleet. <br className="hidden sm:inline" />
+                    Hire Verified Drivers. <br />
+                    <span className="text-amber-700">Earn Consistently.</span>
+                  </h1>
 
-              <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Connect directly with verified vehicle owners and professional drivers across Nairobi. No middlemen, transparent daily targets, structured digital agreements, and algorithmic matching.
-              </p>
+                  <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                    List your vehicles, review screened Nairobi drivers with verified licenses, direct-chat with shortlisted candidates, and execute structured digital agreements.
+                  </p>
 
-              {/* Primary Call to Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
-                <Link href="/vehicles" className="w-full sm:w-auto">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full sm:w-auto shadow-md"
-                    leftIcon={<Search className="w-5 h-5 text-[#DCEEFF]" />}
-                  >
-                    Find a Vehicle
-                  </Button>
-                </Link>
+                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
+                    <Link href="/partner/listings/new" className="w-full sm:w-auto">
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        className="w-full sm:w-auto shadow-md"
+                        leftIcon={<PlusCircle className="w-5 h-5 text-[#FFF1B8]" />}
+                      >
+                        Post Vehicle Listing
+                      </Button>
+                    </Link>
+                    <Link href="/partner/applications" className="w-full sm:w-auto">
+                      <Button
+                        variant="soft-yellow"
+                        size="lg"
+                        className="w-full sm:w-auto font-bold"
+                        leftIcon={<Users className="w-5 h-5 text-[#92400E]" />}
+                      >
+                        Screen Applicants
+                      </Button>
+                    </Link>
+                    <Link href="/partner/dashboard" className="w-full sm:w-auto">
+                      <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                        Partner Hub
+                      </Button>
+                    </Link>
+                  </div>
+                </>
+              ) : mounted && isAuthenticated && role === 'DRIVER' ? (
+                <>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DDF5E3] border border-[#A7F3D0] text-[#065F46] text-xs font-bold tracking-wide">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Verified Driver Mobility Hub &bull; Nairobi</span>
+                  </div>
 
-                {isAuthenticated && role === 'PARTNER' ? (
-                  <Link href="/partner/listings/new" className="w-full sm:w-auto">
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#102A43] tracking-tight font-heading leading-[1.1]">
+                    Find a Car. <br className="hidden sm:inline" />
+                    Drive in Nairobi. <br />
+                    <span className="text-blue-600">Earn Daily.</span>
+                  </h1>
+
+                  <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                    Connect directly with verified vehicle owners. Transparent daily targets, zero broker fees, direct partner chat, and quick digital operating agreements.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
+                    <Link href="/vehicles" className="w-full sm:w-auto">
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        className="w-full sm:w-auto shadow-md"
+                        leftIcon={<Search className="w-5 h-5 text-[#DCEEFF]" />}
+                      >
+                        Browse Available Vehicles
+                      </Button>
+                    </Link>
+                    <Link href="/driver/matches" className="w-full sm:w-auto">
+                      <Button
+                        variant="soft-blue"
+                        size="lg"
+                        className="w-full sm:w-auto font-bold"
+                        leftIcon={<Sparkles className="w-5 h-5 text-blue-700" />}
+                      >
+                        My Compatibility Matches ✨
+                      </Button>
+                    </Link>
+                    <Link href="/driver/applications" className="w-full sm:w-auto">
+                      <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                        My Applications
+                      </Button>
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#DDF5E3] border border-[#A7F3D0] text-[#065F46] text-xs font-bold tracking-wide">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Kenya&apos;s Verified Driver ↔ Partner Mobility Marketplace</span>
+                  </div>
+
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#102A43] tracking-tight font-heading leading-[1.1]">
+                    Find a Car. <br className="hidden sm:inline" />
+                    Find a Driver. <br />
+                    <span className="text-blue-600">Drive &amp; Earn.</span>
+                  </h1>
+
+                  <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                    Connect directly with verified vehicle owners and professional drivers across Nairobi. No middlemen, transparent daily targets, structured digital agreements, and algorithmic matching.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
+                    <Link href="/vehicles" className="w-full sm:w-auto">
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        className="w-full sm:w-auto shadow-md"
+                        leftIcon={<Search className="w-5 h-5 text-[#DCEEFF]" />}
+                      >
+                        Find a Vehicle
+                      </Button>
+                    </Link>
+
                     <Button
                       variant="soft-yellow"
                       size="lg"
                       className="w-full sm:w-auto font-bold"
+                      onClick={() => openAuth('PARTNER')}
                       leftIcon={<Car className="w-5 h-5 text-[#92400E]" />}
                     >
-                      Post Vehicle Listing
+                      List My Vehicle
                     </Button>
-                  </Link>
-                ) : (
-                  <Button
-                    variant="soft-yellow"
-                    size="lg"
-                    className="w-full sm:w-auto font-bold"
-                    onClick={() => openAuth('PARTNER')}
-                    leftIcon={<Car className="w-5 h-5 text-[#92400E]" />}
-                  >
-                    List My Vehicle
-                  </Button>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
 
               {/* Live Trust Metrics Bar */}
               <div className="pt-6 grid grid-cols-3 gap-4 border-t border-slate-200/80 max-w-lg mx-auto lg:mx-0 text-left">

@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const restoreSession = () => {
       const savedUserId = localStorage.getItem('nia_current_user_id');
-      if (savedUserId && marketplaceStore.users.length > 0) {
+      if (savedUserId) {
         const found = marketplaceStore.users.find(u => u.id === savedUserId);
         if (found) {
           setCurrentUser(found);
@@ -60,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setPartnerProfile(marketplaceStore.partners.find(p => p.userId === found.id) || null);
             setDriverProfile(null);
           }
+        } else if (marketplaceStore.users.length === 0) {
+          // Database was cleared
+          setCurrentUser(null);
+          setCurrentProfile(null);
+          setDriverProfile(null);
+          setPartnerProfile(null);
+          setRole('GUEST');
+          localStorage.removeItem('nia_current_user_id');
         }
       }
     };
