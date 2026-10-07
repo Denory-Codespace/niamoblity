@@ -20,17 +20,19 @@ import {
 } from 'lucide-react';
 
 export default function DriverApplicationsPage() {
-  const { driverProfile } = useAuth();
-  const [applications, setApplications] = useState<Application[]>(
-    marketplaceStore.applications.filter(a => a.driverId === (driverProfile?.id || 'drv-01'))
-  );
+  const { driverProfile, isAuthenticated, role, loginAsRole } = useAuth();
+  const [applications, setApplications] = useState<Application[]>([]);
 
   useEffect(() => {
-    const unsubscribe = marketplaceStore.subscribe(() => {
-      setApplications(
-        marketplaceStore.applications.filter(a => a.driverId === (driverProfile?.id || 'drv-01'))
-      );
-    });
+    const update = () => {
+      if (driverProfile) {
+        setApplications(marketplaceStore.applications.filter(a => a.driverId === driverProfile.id));
+      } else {
+        setApplications([...marketplaceStore.applications]);
+      }
+    };
+    update();
+    const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
   }, [driverProfile]);
 
@@ -54,6 +56,41 @@ export default function DriverApplicationsPage() {
         return <Badge variant="neutral">{status}</Badge>;
     }
   };
+
+  if (!isAuthenticated || role !== 'DRIVER') {
+    return (
+      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-5">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto shadow-sm">
+          <FileText className="w-8 h-8" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold text-[#102A43]">Driver Sign-In Required</h2>
+          <p className="text-slate-500 text-xs leading-relaxed">
+            Sign in as a Driver to view and track your submitted vehicle applications.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-col gap-2.5">
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full justify-center"
+            onClick={() => loginAsRole('DRIVER')}
+          >
+            Continue as Demo Driver
+          </Button>
+          <div className="flex items-center justify-center gap-4 text-xs pt-1">
+            <Link href="/login" className="font-bold text-blue-600 hover:underline">
+              Sign In
+            </Link>
+            <span className="text-slate-300">&bull;</span>
+            <Link href="/register" className="font-bold text-blue-600 hover:underline">
+              Register
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12">

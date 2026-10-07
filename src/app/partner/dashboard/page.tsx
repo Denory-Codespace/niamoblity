@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function PartnerDashboardPage() {
-  const { currentProfile, partnerProfile } = useAuth();
+  const { currentProfile, partnerProfile, isAuthenticated, role, loginAsRole } = useAuth();
   const [vehicles, setVehicles] = useState(marketplaceStore.vehicles);
   const [listings, setListings] = useState(marketplaceStore.listings);
   const [applications, setApplications] = useState(marketplaceStore.applications);
@@ -36,6 +36,48 @@ export default function PartnerDashboardPage() {
   }, []);
 
   const pendingApps = applications.filter(a => a.status === 'SUBMITTED' || a.status === 'VIEWED');
+
+  if (!isAuthenticated || role !== 'PARTNER') {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] py-16 px-4 flex justify-center items-center">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-soft text-center space-y-6">
+          <div className="w-16 h-16 bg-amber-50 text-amber-800 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+            <Car className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-[#102A43] font-heading">
+              Partner Fleet Hub
+            </h2>
+            <p className="text-xs text-slate-500">
+              Please sign in as a Vehicle Partner to manage your fleet, inspect drivers, and track agreements.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full justify-center"
+              onClick={() => loginAsRole('PARTNER')}
+            >
+              Continue as Demo Partner
+            </Button>
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <Link href="/login" className="font-bold text-blue-600 hover:underline">
+                Sign In
+              </Link>
+              <span className="text-slate-300">&bull;</span>
+              <Link href="/register" className="font-bold text-blue-600 hover:underline">
+                Register as Partner
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const partnerName = partnerProfile?.companyName || currentProfile?.fullName || 'Apex Fleets Kenya';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12">

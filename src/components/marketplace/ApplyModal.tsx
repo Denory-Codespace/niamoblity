@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/Badge';
 import { VehicleListing } from '@/types';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
-import { formatKes } from '@/lib/utils';
-import { CheckCircle, ShieldCheck, Sparkles, Send } from 'lucide-react';
+import { formatKes, generateUUID } from '@/lib/utils';
+import { CheckCircle, ShieldCheck, Sparkles, Send, Users, LogIn } from 'lucide-react';
 
 interface ApplyModalProps {
   isOpen: boolean;
@@ -18,37 +18,49 @@ interface ApplyModalProps {
 }
 
 export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalProps) {
-  const { driverProfile, currentProfile, currentUser } = useAuth();
+  const { driverProfile, currentProfile, currentUser, isAuthenticated, role, loginAsRole } = useAuth();
   const [coverNote, setCoverNote] = useState(
     "Hello! I am an experienced driver registered on mobility platforms. I maintain consistent daily remittance and keep vehicles in pristine condition. I would love to drive this vehicle."
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!listing) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMsg(null);
 
     try {
-      const driverId = driverProfile?.id || (marketplaceStore.drivers[0]?.id) || `drv-${currentUser?.id || Date.now()}`;
+      let activeDriverId = driverProfile?.id;
+      if (!activeDriverId) {
+        if (marketplaceStore.drivers.length > 0) {
+          activeDriverId = marketplaceStore.drivers[0].id;
+        } else {
+          activeDriverId = generateUUID();
+        }
+      }
+
       await marketplaceStore.applyToListing(
         listing.id,
-        driverId,
+        activeDriverId,
         coverNote
       );
+
       setIsSubmitting(false);
       setIsSubmitted(true);
       if (onSuccess) onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       setIsSubmitting(false);
-      alert("Application failed: " + (err as Error).message);
+      setErrorMsg(err.message || 'Application submission failed.');
     }
   };
 
   const handleClose = () => {
     setIsSubmitted(false);
+    setErrorMsg(null);
     onClose();
   };
 
@@ -57,7 +69,11 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
       isOpen={isOpen}
       onClose={handleClose}
       title={isSubmitted ? "Application Submitted!" : "Apply for Vehicle Opportunity"}
-      description={isSubmitted ? "Your application has been sent directly to the vehicle partner." : `${listing.vehicle?.make} ${listing.vehicle?.model} (${listing.vehicle?.year})`}
+      description={
+        isSubmitted
+          ? "Your application has been sent directly to the vehicle partner."
+          : `${listing.vehicle?.make} ${listing.vehicle?.model} (${listing.vehicle?.year})`
+      }
     >
       {isSubmitted ? (
         <div className="text-center py-6 space-y-4">
@@ -67,7 +83,7 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
           <div className="space-y-1">
             <h4 className="text-lg font-bold text-[#102A43]">Application Transmitted</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              {listing.partner?.fullName} has received your profile and cover note. You can track status in your Driver Applications tab.
+              {listing.partner?.fullName || "Vehicle Partner"} has received your profile and cover note. You can track status in your Driver Applications tab.
             </p>
           </div>
           <div className="pt-4">
@@ -76,8 +92,39 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
             </Button>
           </div>
         </div>
+      ) : !isAuthenticated || role !== 'DRIVER' ? (
+        <div className="py-6 space-y-5 text-center">
+          <div className="w-14 h-14 bg-blue-50 text-blue-700 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+            <Users className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-base font-bold text-[#102A43]">Driver Account Required</h4>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto">
+              You must be signed in as a registered Driver to apply for vehicle opportunities.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 max-w-xs mx-auto">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => loginAsRole('DRIVER')}
+              leftIcon={<LogIn className="w-4 h-4 text-[#FFF1B8]" />}
+            >
+              Continue as Driver
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+              {errorMsg}
+            </div>
+          )}
+
           {/* Summary Box */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5">
             <div className="flex items-center justify-between">

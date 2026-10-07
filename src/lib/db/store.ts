@@ -66,14 +66,26 @@ class MarketplaceStore {
     this.loadFromStorage();
     try {
       // Pull fresh data from Supabase
-      const remoteListings = await dbService.getListings();
-      if (remoteListings && remoteListings.length > 0) {
-        this.listings = remoteListings;
-      }
-      const remoteVehicles = await dbService.getVehicles();
-      if (remoteVehicles && remoteVehicles.length > 0) {
-        this.vehicles = remoteVehicles;
-      }
+      const [remoteUsers, remoteProfiles, remoteDrivers, remotePartners, remoteVehicles, remoteListings, remoteApplications, remoteAgreements] = await Promise.all([
+        dbService.getUsers(),
+        dbService.getProfiles(),
+        dbService.getDrivers(),
+        dbService.getPartners(),
+        dbService.getVehicles(),
+        dbService.getListings(),
+        dbService.getApplications(),
+        dbService.getAgreements(),
+      ]);
+
+      if (remoteUsers.length > 0) this.users = remoteUsers;
+      if (remoteProfiles.length > 0) this.profiles = remoteProfiles;
+      if (remoteDrivers.length > 0) this.drivers = remoteDrivers;
+      if (remotePartners.length > 0) this.partners = remotePartners;
+      if (remoteVehicles.length > 0) this.vehicles = remoteVehicles;
+      if (remoteListings.length > 0) this.listings = remoteListings;
+      if (remoteApplications.length > 0) this.applications = remoteApplications;
+      if (remoteAgreements.length > 0) this.agreements = remoteAgreements;
+
       this.notify();
     } catch (e) {
       console.warn('Initial remote fetch notice:', e);
@@ -146,7 +158,53 @@ class MarketplaceStore {
     }
 
     this.notify();
-    return { user: res.user, profile: res.profile };
+    return { user: res.user, profile: res.profile, supabaseSynced: res.supabaseSynced };
+  }
+
+  // --- Real Login Flow ---
+  public async loginUser(identifier: string) {
+    // 1. Try Supabase lookup
+    try {
+      const remote = await dbService.loginUser(identifier);
+      if (remote) {
+        if (!this.users.some(u => u.id === remote.user.id)) this.users.unshift(remote.user);
+        if (remote.profile && !this.profiles.some(p => p.id === remote.profile!.id)) this.profiles.unshift(remote.profile);
+        if (remote.roleRecord) {
+          const roleRec = remote.roleRecord;
+          if (remote.user.role === 'DRIVER' && !this.drivers.some(d => d.id === roleRec.id)) {
+            this.drivers.unshift(roleRec as DriverProfile);
+          } else if (remote.user.role === 'PARTNER' && !this.partners.some(p => p.id === roleRec.id)) {
+            this.partners.unshift(roleRec as PartnerProfile);
+          }
+        }
+        this.notify();
+        return {
+          user: remote.user,
+          profile: remote.profile || null,
+          driverProfile: remote.user.role === 'DRIVER' ? (remote.roleRecord as DriverProfile) : null,
+          partnerProfile: remote.user.role === 'PARTNER' ? (remote.roleRecord as PartnerProfile) : null,
+        };
+      }
+    } catch (e) {
+      console.warn('Supabase login check error:', e);
+    }
+
+    // 2. Fall back to local store
+    const clean = identifier.trim().toLowerCase();
+    const localUser = this.users.find(u => u.email.toLowerCase() === clean || u.phone.includes(clean));
+    if (localUser) {
+      const profile = this.profiles.find(p => p.userId === localUser.id) || null;
+      const driverProfile = this.drivers.find(d => d.userId === localUser.id) || null;
+      const partnerProfile = this.partners.find(p => p.userId === localUser.id) || null;
+      return {
+        user: localUser,
+        profile,
+        driverProfile,
+        partnerProfile,
+      };
+    }
+
+    return null;
   }
 
   // --- Driver & Listing Queries ---

@@ -21,10 +21,9 @@ import {
 } from 'lucide-react';
 
 export default function DriverMatchesPage() {
-  const { driverProfile, currentProfile, isAuthenticated } = useAuth();
+  const { driverProfile, currentProfile, isAuthenticated, loginAsRole } = useAuth();
   const [rankedListings, setRankedListings] = useState<any[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     if (driverProfile) {
@@ -41,20 +40,34 @@ export default function DriverMatchesPage() {
 
   if (!driverProfile) {
     return (
-      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
-        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto">
+      <div className="max-w-md mx-auto py-20 px-4 text-center space-y-5">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto shadow-sm">
           <Sparkles className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-[#102A43]">Driver Profile Required</h2>
-        <p className="text-slate-500 text-xs leading-relaxed">
-          Create or sign into your Driver profile to view personalized algorithmic compatibility scores with Nairobi vehicle listings.
-        </p>
-        <div className="pt-2">
-          <Link href="/vehicles">
-            <Button variant="primary" size="md">
-              Browse Vehicles
-            </Button>
-          </Link>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold text-[#102A43]">Driver Profile Required</h2>
+          <p className="text-slate-500 text-xs leading-relaxed">
+            Create or sign into your Driver profile to view personalized algorithmic compatibility scores with Nairobi vehicle listings.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-col gap-2.5">
+          <Button
+            variant="primary"
+            size="md"
+            className="w-full justify-center"
+            onClick={() => loginAsRole('DRIVER')}
+          >
+            Continue as Demo Driver
+          </Button>
+          <div className="flex items-center justify-center gap-4 text-xs pt-1">
+            <Link href="/login" className="font-bold text-blue-600 hover:underline">
+              Sign In
+            </Link>
+            <span className="text-slate-300">&bull;</span>
+            <Link href="/register" className="font-bold text-blue-600 hover:underline">
+              Register as Driver
+            </Link>
+          </div>
         </div>
       </div>
     );

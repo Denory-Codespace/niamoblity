@@ -32,9 +32,17 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authDefaultRole, setAuthDefaultRole] = useState<UserRole>('DRIVER');
+  const [authModalMode, setAuthModalMode] = useState<'LOGIN' | 'REGISTER'>('REGISTER');
 
   const openRegister = (targetRole: UserRole) => {
     setAuthDefaultRole(targetRole);
+    setAuthModalMode('REGISTER');
+    setAuthModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const openLogin = () => {
+    setAuthModalMode('LOGIN');
     setAuthModalOpen(true);
     setMobileMenuOpen(false);
   };
@@ -187,6 +195,14 @@ export default function Navbar() {
                   <Button
                     variant="ghost"
                     size="md"
+                    onClick={openLogin}
+                    leftIcon={<LogIn className="w-4 h-4 text-slate-700" />}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
                     onClick={() => openRegister('DRIVER')}
                     leftIcon={<UserPlus className="w-4 h-4 text-blue-600" />}
                   >
@@ -219,17 +235,22 @@ export default function Navbar() {
               {/* Profile Avatar */}
               {isAuthenticated && currentProfile && (
                 <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                  <div className="w-9 h-9 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
-                    {currentProfile.fullName.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-[#102A43] truncate max-w-[110px]">
-                      {currentProfile.fullName.split(' ')[0]}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">
-                      {role}
-                    </span>
-                  </div>
+                  <Link
+                    href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
+                      {currentProfile.fullName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-bold text-[#102A43] truncate max-w-[110px]">
+                        {currentProfile.fullName.split(' ')[0]}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {role}
+                      </span>
+                    </div>
+                  </Link>
                 </div>
               )}
             </div>
@@ -269,9 +290,18 @@ export default function Navbar() {
             {!isAuthenticated ? (
               <div className="pt-2 space-y-2 border-t border-slate-100">
                 <Button
+                  variant="outline"
+                  size="md"
+                  className="w-full justify-center"
+                  onClick={openLogin}
+                  leftIcon={<LogIn className="w-4 h-4 text-slate-700" />}
+                >
+                  Sign In
+                </Button>
+                <Button
                   variant="primary"
                   size="md"
-                  className="w-full"
+                  className="w-full justify-center"
                   onClick={() => openRegister('DRIVER')}
                 >
                   Register as Driver
@@ -279,13 +309,43 @@ export default function Navbar() {
                 <Button
                   variant="soft-yellow"
                   size="md"
-                  className="w-full font-bold"
+                  className="w-full font-bold justify-center"
                   onClick={() => openRegister('PARTNER')}
                 >
                   List My Vehicle
                 </Button>
               </div>
-            ) : null}
+            ) : (
+              <div className="pt-2 space-y-2 border-t border-slate-100">
+                <div className="px-3 py-2 bg-slate-50 rounded-xl text-xs">
+                  <span className="font-bold text-[#102A43] block">{currentProfile?.fullName}</span>
+                  <span className="text-slate-500">{role} Account</span>
+                </div>
+                {role === 'PARTNER' ? (
+                  <Link
+                    href="/partner/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg"
+                  >
+                    Partner Hub
+                  </Link>
+                ) : (
+                  <Link
+                    href="/driver/matches"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg"
+                  >
+                    My Driver Matches
+                  </Link>
+                )}
+                <button
+                  onClick={() => { logout(); setMobileMenuOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         )}
       </header>
@@ -294,6 +354,7 @@ export default function Navbar() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authDefaultRole}
+        initialMode={authModalMode}
       />
     </>
   );

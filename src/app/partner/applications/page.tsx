@@ -32,7 +32,8 @@ export default function PartnerApplicationsPage() {
   }, []);
 
   const handleStatusChange = (appId: string, newStatus: ApplicationStatus, reason?: string) => {
-    marketplaceStore.updateApplicationStatus(appId, newStatus, 'usr-partner-01', reason);
+    const reviewerId = currentProfile?.userId || 'usr-partner-01';
+    marketplaceStore.updateApplicationStatus(appId, newStatus, reviewerId, reason);
   };
 
   const filteredApps = applications.filter(a => {

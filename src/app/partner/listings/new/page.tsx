@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { NAIROBI_SUBCOUNTIES, VEHICLE_MAKE_MODELS } from '@/lib/utils';
-import { Car, PlusCircle, ShieldCheck, CheckCircle } from 'lucide-react';
+import { NAIROBI_SUBCOUNTIES, generateUUID } from '@/lib/utils';
+import { Car, PlusCircle, ShieldCheck, CheckCircle, LogIn, AlertCircle } from 'lucide-react';
 
 export default function NewListingPage() {
   const router = useRouter();
-  const { partnerProfile, currentProfile, currentUser } = useAuth();
+  const { partnerProfile, currentProfile, currentUser, isAuthenticated, role, loginAsRole } = useAuth();
 
   const [make, setMake] = useState('Toyota');
   const [model, setModel] = useState('Fielder');
@@ -28,16 +29,23 @@ export default function NewListingPage() {
   );
   const [minExp, setMinExp] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
-      const partnerId = partnerProfile?.id || `prt-${currentUser?.id || Date.now()}`;
+      let partnerId = partnerProfile?.id;
+      if (!partnerId) {
+        const found = marketplaceStore.partners.find(p => p.userId === currentUser?.id) || marketplaceStore.partners[0];
+        partnerId = found?.id || generateUUID();
+      }
+
       const partnerName = currentProfile?.fullName || 'Verified Vehicle Partner';
 
-      // 1. Add Vehicle
+      // 1. Add Vehicle with verified UUID
       const newVehicle = await marketplaceStore.addVehicle({
         partnerId,
         make,
@@ -90,12 +98,53 @@ export default function NewListingPage() {
 
       setIsSubmitting(false);
       router.push('/vehicles');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setIsSubmitting(false);
-      router.push('/vehicles');
+      setErrorMessage(err.message || 'Failed to publish vehicle listing.');
     }
   };
+
+  if (!isAuthenticated || role !== 'PARTNER') {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] py-16 px-4 flex justify-center items-center">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-soft text-center space-y-6">
+          <div className="w-16 h-16 bg-amber-50 text-amber-800 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+            <Car className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-[#102A43] font-heading">
+              Partner Account Required
+            </h2>
+            <p className="text-xs text-slate-500">
+              Only verified Vehicle Partners can publish opportunities to the Nairobi driver marketplace.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full justify-center"
+              onClick={() => loginAsRole('PARTNER')}
+              leftIcon={<LogIn className="w-4 h-4 text-[#FFF1B8]" />}
+            >
+              Continue as Demo Partner
+            </Button>
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <Link href="/login" className="font-bold text-blue-600 hover:underline">
+                Sign In
+              </Link>
+              <span className="text-slate-300">&bull;</span>
+              <Link href="/register" className="font-bold text-blue-600 hover:underline">
+                Register as Partner
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12">
@@ -113,6 +162,13 @@ export default function NewListingPage() {
             Publish your vehicle specifications, daily target, and driver requirements to the Nairobi marketplace.
           </p>
         </div>
+
+        {errorMessage && (
+          <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5 text-xs text-red-700 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <p>{errorMessage}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-soft space-y-6">
           {/* Section 1: Vehicle Details */}
@@ -145,19 +201,6 @@ export default function NewListingPage() {
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
-                  placeholder="e.g. Fielder, Axio, Demio, Note..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Registration Plate</label>
-                <input
-                  type="text"
-                  required
-                  value={regNumber}
-                  onChange={(e) => setRegNumber(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-mono focus:ring-2 focus:ring-[#102A43]"
-                  placeholder="e.g. KDG 123X"
                 />
               </div>
 
@@ -166,14 +209,28 @@ export default function NewListingPage() {
                 <input
                   type="number"
                   required
-                  min="2012"
-                  max="2026"
+                  min={2014}
+                  max={2026}
                   value={year}
                   onChange={(e) => setYear(Number(e.target.value))}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">NTSA Registration Plate</label>
+                <input
+                  type="text"
+                  required
+                  value={regNumber}
+                  onChange={(e) => setRegNumber(e.target.value.toUpperCase())}
+                  placeholder="e.g. KDG 789P"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Transmission</label>
                 <select
@@ -194,9 +251,9 @@ export default function NewListingPage() {
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300"
                 >
                   <option value="PETROL">Petrol</option>
-                  <option value="HYBRID">Hybrid</option>
                   <option value="DIESEL">Diesel</option>
-                  <option value="ELECTRIC">Electric</option>
+                  <option value="HYBRID">Hybrid</option>
+                  <option value="ELECTRIC">Electric (EV)</option>
                 </select>
               </div>
             </div>
@@ -205,7 +262,7 @@ export default function NewListingPage() {
           {/* Section 2: Commercial Terms */}
           <div className="space-y-4 pt-4 border-t border-slate-100">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">
-              2. Commercial Arrangement &amp; Location
+              2. Commercial Target &amp; Terms (KES)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -216,37 +273,51 @@ export default function NewListingPage() {
                   onChange={(e) => setArrangementType(e.target.value as any)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300"
                 >
-                  <option value="DAILY_TARGET">Daily Target (KES)</option>
-                  <option value="WEEKLY_TARGET">Weekly Target (KES)</option>
+                  <option value="DAILY_TARGET">Daily Target</option>
+                  <option value="WEEKLY_TARGET">Weekly Target</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Amount (KES)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Target Amount ({arrangementType === 'WEEKLY_TARGET' ? 'Weekly' : 'Daily'} KES)
+                </label>
                 <input
                   type="number"
                   required
-                  step="100"
+                  step={100}
                   value={targetAmountKes}
                   onChange={(e) => setTargetAmountKes(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-bold text-blue-700"
-                  placeholder="e.g. 2800"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Security Deposit (KES)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Refundable Security Deposit (KES)</label>
                 <input
                   type="number"
                   required
-                  step="1000"
+                  step={1000}
                   value={depositAmountKes}
                   onChange={(e) => setDepositAmountKes(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 font-bold"
-                  placeholder="e.g. 15000"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Min Driver Experience (Years)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={minExp}
+                  onChange={(e) => setMinExp(Number(e.target.value))}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Primary Operating Zone</label>
                 <select
