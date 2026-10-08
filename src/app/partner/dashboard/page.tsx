@@ -25,15 +25,26 @@ export default function PartnerDashboardPage() {
   const [applications, setApplications] = useState(marketplaceStore.applications);
   const [agreements, setAgreements] = useState(marketplaceStore.agreements);
 
+  const partnerId = partnerProfile?.id;
+
   useEffect(() => {
-    const unsubscribe = marketplaceStore.subscribe(() => {
-      setVehicles([...marketplaceStore.vehicles]);
-      setListings([...marketplaceStore.listings]);
-      setApplications([...marketplaceStore.applications]);
-      setAgreements([...marketplaceStore.agreements]);
-    });
+    const update = () => {
+      if (partnerId) {
+        setVehicles(marketplaceStore.vehicles.filter(v => v.partnerId === partnerId));
+        setListings(marketplaceStore.listings.filter(l => l.partnerId === partnerId));
+        setApplications(marketplaceStore.applications.filter(a => a.partnerId === partnerId));
+        setAgreements(marketplaceStore.agreements.filter(a => a.partnerId === partnerId));
+      } else {
+        setVehicles([]);
+        setListings([]);
+        setApplications([]);
+        setAgreements([]);
+      }
+    };
+    update();
+    const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, []);
+  }, [partnerId]);
 
   const pendingApps = applications.filter(a => a.status === 'SUBMITTED' || a.status === 'VIEWED');
 
@@ -53,20 +64,17 @@ export default function PartnerDashboardPage() {
             </p>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full justify-center"
-              onClick={() => loginAsRole('PARTNER')}
-            >
-              Continue as Demo Partner
-            </Button>
+      <div className="space-y-3 pt-2">
+            <Link href="/login">
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full justify-center"
+              >
+                Sign In to Your Account
+              </Button>
+            </Link>
             <div className="flex items-center justify-center gap-4 text-xs">
-              <Link href="/login" className="font-bold text-blue-600 hover:underline">
-                Sign In
-              </Link>
-              <span className="text-slate-300">&bull;</span>
               <Link href="/register" className="font-bold text-blue-600 hover:underline">
                 Register as Partner
               </Link>
@@ -87,7 +95,7 @@ export default function PartnerDashboardPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="yellow" size="sm" icon="shield">
-                Verified Fleet Partner &bull; Apex Fleets Kenya
+                Verified Fleet Partner &bull; {partnerName}
               </Badge>
             </div>
             <h1 className="text-3xl font-black text-[#102A43] font-heading">

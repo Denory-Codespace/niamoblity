@@ -51,19 +51,17 @@ export default function DriverMatchesPage() {
           </p>
         </div>
         <div className="pt-2 flex flex-col gap-2.5">
-          <Button
-            variant="primary"
-            size="md"
-            className="w-full justify-center"
-            onClick={() => loginAsRole('DRIVER')}
-          >
-            Continue as Demo Driver
-          </Button>
+          <Link href="/login">
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full justify-center"
+            >
+              Sign In to Your Account
+            </Button>
+          </Link>
           <div className="flex items-center justify-center gap-4 text-xs pt-1">
-            <Link href="/login" className="font-bold text-blue-600 hover:underline">
-              Sign In
-            </Link>
-            <span className="text-slate-300">&bull;</span>
+            <span className="text-slate-400">No account?</span>
             <Link href="/register" className="font-bold text-blue-600 hover:underline">
               Register as Driver
             </Link>

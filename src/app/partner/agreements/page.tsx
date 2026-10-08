@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
 import { Agreement } from '@/types';
@@ -11,25 +12,23 @@ import {
   FileCheck2,
   ShieldCheck,
   CheckCircle2,
-  Calendar,
-  DollarSign,
   AlertTriangle,
   PenTool,
   Printer,
-  Link,
+  LogIn,
 } from 'lucide-react';
 
-export default function DriverAgreementsPage() {
-  const { driverProfile, currentProfile, isAuthenticated, role, loginAsRole } = useAuth();
-  const [agreements, setAgreements] = useState<Agreement[]>(marketplaceStore.agreements);
+export default function PartnerAgreementsPage() {
+  const { partnerProfile, currentProfile, isAuthenticated, role } = useAuth();
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [signingId, setSigningId] = useState<string | null>(null);
 
-  const driverId = driverProfile?.id;
+  const partnerId = partnerProfile?.id;
 
   useEffect(() => {
     const update = () => {
-      if (driverId) {
-        setAgreements(marketplaceStore.agreements.filter(a => a.driverId === driverId));
+      if (partnerId) {
+        setAgreements(marketplaceStore.agreements.filter(a => a.partnerId === partnerId));
       } else {
         setAgreements([]);
       }
@@ -37,26 +36,26 @@ export default function DriverAgreementsPage() {
     update();
     const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, [driverId]);
+  }, [partnerId]);
 
   const handleSign = (agreementId: string) => {
     setSigningId(agreementId);
     setTimeout(() => {
-      marketplaceStore.signAgreement(agreementId, 'DRIVER');
+      marketplaceStore.signAgreement(agreementId, 'PARTNER');
       setSigningId(null);
     }, 800);
   };
 
-  if (!isAuthenticated || role !== 'DRIVER') {
+  if (!isAuthenticated || role !== 'PARTNER') {
     return (
       <div className="max-w-md mx-auto py-20 px-4 text-center space-y-5">
-        <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto shadow-sm">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto shadow-sm">
           <FileCheck2 className="w-8 h-8" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-[#102A43]">Driver Sign-In Required</h2>
+          <h2 className="text-2xl font-bold text-[#102A43]">Partner Sign-In Required</h2>
           <p className="text-slate-500 text-xs leading-relaxed">
-            Sign in as a Driver to view, review, and digitally sign legal operating agreements.
+            Sign in as a Vehicle Partner to view and manage your operating agreements.
           </p>
         </div>
         <div className="pt-2 flex flex-col gap-2.5 max-w-xs mx-auto">
@@ -65,6 +64,7 @@ export default function DriverAgreementsPage() {
               variant="primary"
               size="md"
               className="w-full justify-center"
+              leftIcon={<LogIn className="w-4 h-4 text-[#FFF1B8]" />}
             >
               Sign In to Your Account
             </Button>
@@ -75,7 +75,7 @@ export default function DriverAgreementsPage() {
               size="md"
               className="w-full justify-center"
             >
-              Register Driver Account
+              Register Partner Account
             </Button>
           </Link>
         </div>
@@ -89,15 +89,15 @@ export default function DriverAgreementsPage() {
         {/* Header */}
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Badge variant="verified" size="sm" icon="shield">
-              Structured Legal Operating Framework
+            <Badge variant="yellow" size="sm" icon="shield">
+              Fleet Operating Agreements
             </Badge>
           </div>
           <h1 className="text-3xl font-black text-[#102A43] font-heading">
-            Operating Agreements
+            My Operating Agreements
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Digitally signed commercial agreements between you and your vehicle partners.
+            Review, sign, and manage commercial agreements with your drivers.
           </p>
         </div>
 
@@ -112,12 +112,15 @@ export default function DriverAgreementsPage() {
                 {/* Header Status Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
-                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                    <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
                       {agr.agreementNumber}
                     </span>
                     <h3 className="text-xl font-black text-[#102A43] mt-1">
-                      {agr.vehicle?.make} {agr.vehicle?.model} ({agr.vehicle?.registrationNumber || 'KDC 602A'})
+                      {agr.vehicle?.make} {agr.vehicle?.model} ({agr.vehicle?.registrationNumber || 'Vehicle'})
                     </h3>
+                    <span className="text-xs text-slate-500 block mt-0.5">
+                      Driver: <strong className="text-slate-700">{agr.driverName}</strong>
+                    </span>
                   </div>
                   <div>
                     {agr.status === 'ACTIVE' ? (
@@ -126,7 +129,7 @@ export default function DriverAgreementsPage() {
                       </Badge>
                     ) : (
                       <Badge variant="yellow" size="md" icon="clock">
-                        Pending Digital Signature
+                        Pending Signatures
                       </Badge>
                     )}
                   </div>
@@ -146,10 +149,10 @@ export default function DriverAgreementsPage() {
 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Vehicle Partner
+                      Driver
                     </span>
                     <span className="text-sm font-extrabold text-[#102A43] block mt-0.5">
-                      {agr.partnerName}
+                      {agr.driverName}
                     </span>
                     <span className="text-[11px] text-slate-500">Operating Area: {agr.operatingArea}</span>
                   </div>
@@ -165,7 +168,7 @@ export default function DriverAgreementsPage() {
                   </div>
                 </div>
 
-                {/* Clauses & Responsibilities Breakdown */}
+                {/* Clauses & Responsibilities */}
                 <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 text-xs text-slate-700">
                   <div>
                     <strong className="text-slate-900 block mb-0.5">Fuel Terms:</strong>
@@ -182,36 +185,36 @@ export default function DriverAgreementsPage() {
                 </div>
 
                 {/* Digital Signatures Box */}
-                <div className="p-4 rounded-2xl bg-[#DCEEFF]/40 border border-[#BFDBFE] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-xs text-slate-700 space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Partner Digital Signature: <strong>{agr.partnerSignedAt ? `Recorded (${formatDateEAT(agr.partnerSignedAt)})` : 'Pending'}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {agr.driverSignedAt ? (
+                      {agr.partnerSignedAt ? (
                         <>
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Driver Digital Signature: <strong>Recorded ({formatDateEAT(agr.driverSignedAt)})</strong></span>
+                          <span>Your Digital Signature: <strong>Recorded ({formatDateEAT(agr.partnerSignedAt)})</strong></span>
                         </>
                       ) : (
                         <>
                           <AlertTriangle className="w-4 h-4 text-amber-600" />
-                          <span className="text-amber-900 font-medium">Your signature is required to activate this vehicle handover.</span>
+                          <span className="text-amber-900 font-medium">Your countersignature is pending.</span>
                         </>
                       )}
                     </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Driver Digital Signature: <strong>{agr.driverSignedAt ? `Recorded (${formatDateEAT(agr.driverSignedAt)})` : 'Awaiting driver'}</strong></span>
+                    </div>
                   </div>
 
-                  {!agr.driverSignedAt ? (
+                  {!agr.partnerSignedAt ? (
                     <Button
-                      variant="primary"
+                      variant="soft-yellow"
                       size="md"
                       isLoading={signingId === agr.id}
                       onClick={() => handleSign(agr.id)}
-                      leftIcon={<PenTool className="w-4 h-4 text-[#FFF1B8]" />}
+                      leftIcon={<PenTool className="w-4 h-4 text-amber-800" />}
                     >
-                      Sign &amp; Accept Agreement
+                      Sign &amp; Countersign Agreement
                     </Button>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -240,9 +243,14 @@ export default function DriverAgreementsPage() {
             <div className="space-y-1">
               <h3 className="text-base font-bold text-[#102A43]">No Active Agreements</h3>
               <p className="text-xs text-slate-500">
-                Once an application is accepted by a vehicle partner, your formal operating agreement will appear here.
+                Once you accept a driver application, an operating agreement will be generated here for your review and signature.
               </p>
             </div>
+            <Link href="/partner/applications">
+              <Button variant="outline" size="sm">
+                View Applications
+              </Button>
+            </Link>
           </div>
         )}
       </div>

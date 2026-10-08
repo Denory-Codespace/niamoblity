@@ -21,23 +21,30 @@ import {
 import { ChatModal } from '@/components/chat/ChatModal';
 
 export default function PartnerApplicationsPage() {
-  const { currentProfile } = useAuth();
+  const { currentProfile, partnerProfile, isAuthenticated, role } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
 
+  const partnerId = partnerProfile?.id;
+
   useEffect(() => {
     setMounted(true);
-    setApplications([...marketplaceStore.applications]);
-    const unsubscribe = marketplaceStore.subscribe(() => {
-      setApplications([...marketplaceStore.applications]);
-    });
+    const update = () => {
+      if (partnerId) {
+        setApplications(marketplaceStore.applications.filter(a => a.partnerId === partnerId));
+      } else {
+        setApplications([]);
+      }
+    };
+    update();
+    const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, []);
+  }, [partnerId]);
 
   const handleStatusChange = (appId: string, newStatus: ApplicationStatus, reason?: string) => {
-    const reviewerId = currentProfile?.userId || 'usr-partner-01';
+    const reviewerId = currentProfile?.userId || '';
     marketplaceStore.updateApplicationStatus(appId, newStatus, reviewerId, reason);
   };
 
@@ -208,7 +215,7 @@ export default function PartnerApplicationsPage() {
                   )}
 
                   {app.status === 'ACCEPTED' && (
-                    <Link href="/driver/agreements">
+                    <Link href="/partner/agreements">
                       <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
                         View Agreement Details
                       </Button>

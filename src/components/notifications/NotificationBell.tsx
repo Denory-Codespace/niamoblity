@@ -6,6 +6,7 @@ import { marketplaceStore } from '@/lib/db/store';
 import { useAuth } from '@/lib/auth/auth-context';
 import { NotificationItem } from '@/types';
 import { formatDateEAT } from '@/lib/utils';
+import { playNotificationSound } from '@/lib/utils/sound';
 import {
   Bell,
   CheckCircle2,
@@ -27,11 +28,20 @@ export function NotificationBell() {
 
   const userId = currentProfile?.userId || 'guest';
 
+  const prevUnreadCountRef = useRef<number>(0);
+
   useEffect(() => {
     setMounted(true);
     const update = () => {
       if (userId) {
-        setNotifications(marketplaceStore.getNotificationsByUser(userId));
+        const fresh = marketplaceStore.getNotificationsByUser(userId);
+        setNotifications(fresh);
+        const newUnread = fresh.filter(n => !n.isRead).length;
+        // Play sound only when unread count increases (new notification arrived)
+        if (newUnread > prevUnreadCountRef.current) {
+          playNotificationSound();
+        }
+        prevUnreadCountRef.current = newUnread;
       }
     };
     update();

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -22,7 +22,9 @@ export function AuthModal({
   defaultRole = 'DRIVER',
   initialMode = 'REGISTER',
 }: AuthModalProps) {
-  const { registerUser, loginUser, loginAsRole } = useAuth();
+  const { registerUser, loginUser } = useAuth();
+
+  // All state declarations first
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>(initialMode);
   const [role, setRole] = useState<UserRole>(defaultRole);
 
@@ -39,6 +41,18 @@ export function AuthModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  // Sync internal mode state when the modal opens (initialMode may change between opens)
+  // This is needed because useState only captures the initial prop on first mount.
+  // When ApplyModal switches between 'LOGIN' and 'REGISTER' and opens this modal,
+  // the effect ensures the correct tab is shown.
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setErrorMessage(null);
+      setSuccessNotice(null);
+    }
+  }, [isOpen, initialMode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,11 +102,6 @@ export function AuthModal({
       setIsSubmitting(false);
       setErrorMessage(err.message || 'Registration failed. Please check your details.');
     }
-  };
-
-  const handleQuickDemo = (demoRole: UserRole) => {
-    loginAsRole(demoRole);
-    onClose();
   };
 
   return (
@@ -178,35 +187,6 @@ export function AuthModal({
             >
               Sign In
             </Button>
-
-            {/* Quick Demo Login Assistance */}
-            <div className="pt-3 border-t border-slate-100">
-              <span className="text-[11px] font-semibold text-slate-500 block mb-2 text-center">
-                Instant One-Click Demo Mode
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickDemo('DRIVER')}
-                  className="text-xs justify-center"
-                  leftIcon={<Users className="w-3.5 h-3.5 text-blue-600" />}
-                >
-                  Demo Driver
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickDemo('PARTNER')}
-                  className="text-xs justify-center"
-                  leftIcon={<Car className="w-3.5 h-3.5 text-amber-700" />}
-                >
-                  Demo Partner
-                </Button>
-              </div>
-            </div>
           </form>
         ) : (
           /* Registration Form */

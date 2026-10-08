@@ -176,7 +176,8 @@ export function ChatModal({
             </div>
           ) : (
             messages.map((msg) => {
-              const isMe = msg.senderId === currentUser?.id || msg.senderRole === role;
+              const isMe = msg.senderId === currentUser?.id ||
+                (msg.senderId === (isDriver ? driverId : partnerId) && !currentUser?.id);
               return (
                 <div
                   key={msg.id}

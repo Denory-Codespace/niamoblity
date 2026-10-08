@@ -641,7 +641,7 @@ export class DatabaseService {
       fuel_terms: agr.fuelTerms,
       maintenance_terms: agr.maintenanceTerms,
       insurance_terms: agr.insuranceTerms,
-      operatingArea: agr.operatingArea,
+      operating_area: agr.operatingArea,
       start_date: agr.startDate,
       terms_and_conditions: agr.termsAndConditions,
       status: agr.status,
@@ -672,6 +672,111 @@ export class DatabaseService {
     const { error } = await supabase.from('agreements').update(updateData).eq('id', id);
     if (error) console.warn('Supabase agreement sign notice:', error.message);
     return !error;
+  }
+
+  // ----------------------------------------------------------------------------
+  // CONVERSATIONS & MESSAGES CRUD
+  // ----------------------------------------------------------------------------
+  async getConversations(): Promise<any[]> {
+    const { data, error } = await supabase.from('conversations').select('*').order('last_message_at', { ascending: false });
+    if (error || !data) return [];
+    return data.map(c => ({
+      id: c.id,
+      driverId: c.driver_id,
+      partnerId: c.partner_id,
+      driverName: c.driver_name,
+      partnerName: c.partner_name,
+      listingId: c.listing_id,
+      listingTitle: c.listing_title,
+      lastMessage: c.last_message,
+      lastMessageAt: c.last_message_at,
+      unreadCount: c.unread_count || 0,
+      createdAt: c.created_at,
+    }));
+  }
+
+  async createOrUpdateConversation(conv: any): Promise<any> {
+    const { error } = await supabase.from('conversations').upsert({
+      id: conv.id,
+      driver_id: conv.driverId,
+      partner_id: conv.partnerId,
+      driver_name: conv.driverName,
+      partner_name: conv.partnerName,
+      listing_id: conv.listingId || null,
+      listing_title: conv.listingTitle || null,
+      last_message: conv.lastMessage,
+      last_message_at: conv.lastMessageAt || new Date().toISOString(),
+      unread_count: conv.unreadCount || 0,
+    });
+    if (error) console.warn('Supabase conversation upsert notice:', error.message);
+    return conv;
+  }
+
+  async getMessages(conversationId?: string): Promise<any[]> {
+    let query = supabase.from('messages').select('*').order('created_at', { ascending: true });
+    if (conversationId) query = query.eq('conversation_id', conversationId);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data.map(m => ({
+      id: m.id,
+      conversationId: m.conversation_id,
+      senderId: m.sender_id,
+      senderName: m.sender_name,
+      senderRole: m.sender_role,
+      content: m.content,
+      isRead: m.is_read,
+      createdAt: m.created_at,
+    }));
+  }
+
+  async createMessage(msg: any): Promise<any> {
+    const { error } = await supabase.from('messages').insert({
+      id: msg.id,
+      conversation_id: msg.conversationId,
+      sender_id: msg.senderId,
+      sender_name: msg.senderName,
+      sender_role: msg.senderRole,
+      content: msg.content,
+      is_read: msg.isRead || false,
+      created_at: msg.createdAt || new Date().toISOString(),
+    });
+    if (error) console.warn('Supabase message insert notice:', error.message);
+    return msg;
+  }
+
+  // ----------------------------------------------------------------------------
+  // NOTIFICATIONS CRUD
+  // ----------------------------------------------------------------------------
+  async getNotifications(userId?: string): Promise<any[]> {
+    let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
+    if (userId && userId !== 'ALL') query = query.eq('user_id', userId);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data.map(n => ({
+      id: n.id,
+      userId: n.user_id,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      isRead: n.is_read,
+      linkUrl: n.link_url,
+      createdAt: n.created_at,
+    }));
+  }
+
+  async createNotification(notif: any): Promise<any> {
+    const { error } = await supabase.from('notifications').insert({
+      id: notif.id,
+      user_id: notif.userId,
+      title: notif.title,
+      message: notif.message,
+      type: notif.type,
+      is_read: notif.isRead || false,
+      link_url: notif.linkUrl || null,
+      created_at: notif.createdAt || new Date().toISOString(),
+    });
+    if (error) console.warn('Supabase notification insert notice:', error.message);
+    return notif;
   }
 }
 

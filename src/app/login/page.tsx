@@ -11,7 +11,7 @@ import { UserRole } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginUser, loginAsRole, isAuthenticated, role } = useAuth();
+  const { loginUser, isAuthenticated, role } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -33,15 +33,6 @@ export default function LoginPage() {
       router.push('/vehicles');
     } else {
       setErrorMessage(res.error || 'Account not found. Please register.');
-    }
-  };
-
-  const handleDemoLogin = (targetRole: UserRole) => {
-    loginAsRole(targetRole);
-    if (targetRole === 'PARTNER') {
-      router.push('/partner/dashboard');
-    } else {
-      router.push('/vehicles');
     }
   };
 
@@ -98,35 +89,6 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
-
-          {/* Quick Demo Assist */}
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <span className="text-[11px] font-semibold text-slate-400 block text-center uppercase tracking-wider">
-              Quick Test Sign-In
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleDemoLogin('DRIVER')}
-                className="text-xs justify-center"
-                leftIcon={<Users className="w-3.5 h-3.5 text-blue-600" />}
-              >
-                Demo Driver
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleDemoLogin('PARTNER')}
-                className="text-xs justify-center"
-                leftIcon={<Car className="w-3.5 h-3.5 text-amber-700" />}
-              >
-                Demo Partner
-              </Button>
-            </div>
-          </div>
 
           <div className="text-center pt-2">
             <p className="text-xs text-slate-500">

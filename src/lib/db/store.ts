@@ -404,7 +404,7 @@ class MarketplaceStore {
     });
 
     this.notify();
-    return { user: res.user, profile: res.profile, supabaseSynced: res.supabaseSynced };
+    return { user: res.user, profile: res.profile, roleRecord: res.roleRecord, supabaseSynced: res.supabaseSynced };
   }
 
   // --- Real Login Flow ---

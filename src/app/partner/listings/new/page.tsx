@@ -122,20 +122,17 @@ export default function NewListingPage() {
           </div>
 
           <div className="space-y-3 pt-2">
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full justify-center"
-              onClick={() => loginAsRole('PARTNER')}
-              leftIcon={<LogIn className="w-4 h-4 text-[#FFF1B8]" />}
-            >
-              Continue as Demo Partner
-            </Button>
+            <Link href="/login">
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full justify-center"
+                leftIcon={<LogIn className="w-4 h-4 text-[#FFF1B8]" />}
+              >
+                Sign In to Your Account
+              </Button>
+            </Link>
             <div className="flex items-center justify-center gap-4 text-xs">
-              <Link href="/login" className="font-bold text-blue-600 hover:underline">
-                Sign In
-              </Link>
-              <span className="text-slate-300">&bull;</span>
               <Link href="/register" className="font-bold text-blue-600 hover:underline">
                 Register as Partner
               </Link>
