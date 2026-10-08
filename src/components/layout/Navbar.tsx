@@ -301,11 +301,33 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <div className="flex lg:hidden items-center gap-2">
+            {/* Mobile Action Area: Notifications, Profile, Menu */}
+            <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
+              {mounted && isAuthenticated ? (
+                <>
+                  <NotificationBell />
+                  {currentProfile && (
+                    <Link
+                      href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
+                      className="w-8 h-8 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100"
+                    >
+                      {currentProfile.fullName.slice(0, 2).toUpperCase()}
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={openLogin}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#102A43] bg-slate-100 hover:bg-slate-200 transition-colors"
+                >
+                  Sign In
+                </button>
+              )}
+
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 focus:outline-none"
+                aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>

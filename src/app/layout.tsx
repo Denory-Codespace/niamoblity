@@ -6,6 +6,8 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
 import { TopProgressBar } from "@/components/ui/TopProgressBar";
+import { NotificationToast } from "@/components/notifications/NotificationToast";
+import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -44,10 +46,12 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col font-sans bg-[#F8FAFC] text-[#102A43] antialiased">
         <TopProgressBar />
         <AuthProvider>
+          <NotificationToast />
           <Navbar />
           <main className="flex-1 pb-16 md:pb-0">{children}</main>
           <Footer />
           <MobileNav />
+          <PWAInstallPrompt />
         </AuthProvider>
       </body>
     </html>

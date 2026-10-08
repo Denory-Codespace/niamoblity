@@ -182,20 +182,46 @@ export default function DriverApplicationsPage() {
                 )}
 
                 {/* Action Bar */}
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   <div className="text-xs text-slate-500">
                     {app.statusReason && <span>Status update: <strong className="text-slate-700">{app.statusReason}</strong></span>}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="soft-blue"
-                      size="sm"
-                      onClick={() => setActiveChatApp(app)}
-                      leftIcon={<MessageSquare className="w-4 h-4 text-blue-600" />}
-                    >
-                      Chat with Partner
-                    </Button>
+                    {/* Only allow driver to chat if partner has initiated contact */}
+                    {(() => {
+                      const isChatUnlocked =
+                        app.status === 'INTERVIEW' ||
+                        app.status === 'ACCEPTED' ||
+                        marketplaceStore.conversations.some(c =>
+                          ((c.driverId === app.driverId && c.partnerId === app.partnerId) ||
+                           (app.listingId && c.listingId === app.listingId && c.driverId === app.driverId)) &&
+                          marketplaceStore.getMessages(c.id).some(m => m.senderRole === 'PARTNER')
+                        );
+
+                      if (isChatUnlocked) {
+                        return (
+                          <Button
+                            variant="soft-blue"
+                            size="sm"
+                            onClick={() => setActiveChatApp(app)}
+                            leftIcon={<MessageSquare className="w-4 h-4 text-blue-600" />}
+                          >
+                            Chat with Partner
+                          </Button>
+                        );
+                      }
+
+                      return (
+                        <div
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200"
+                          title="The partner must review your profile and open chat before you can message them."
+                        >
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Awaiting Partner to Initiate Chat</span>
+                        </div>
+                      );
+                    })()}
 
                     {app.status === 'ACCEPTED' && (
                       <Link href="/driver/agreements">
