@@ -27,6 +27,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#102A43",
 };
 
 export const metadata: Metadata = {
@@ -34,10 +35,20 @@ export const metadata: Metadata = {
   description: "Kenya's trusted marketplace connecting verified drivers and vehicle partners in Nairobi and across Kenya. Built by Denory Codespace.",
   keywords: ["nia mobility", "driver marketplace Kenya", "car owner driver Nairobi", "Uber car hire Nairobi", "Bolt vehicle partner", "Denory Codespace"],
   authors: [{ name: "Denory Codespace" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "nia mobility",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
-  children,
+  children, 
 }: Readonly<{
   children: React.ReactNode;
 }>) {
