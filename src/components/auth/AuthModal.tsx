@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/lib/auth/auth-context';
 import { NAIROBI_SUBCOUNTIES } from '@/lib/utils';
-import { Users, Car, ShieldCheck, CheckCircle2, LogIn, AlertCircle, Sparkles } from 'lucide-react';
+import { Users, Car, ShieldCheck, CheckCircle2, LogIn, AlertCircle, Sparkles, Eye, EyeOff, Lock } from 'lucide-react';
 import { UserRole } from '@/types';
 
 interface AuthModalProps {
@@ -30,6 +30,8 @@ export function AuthModal({
 
   // Form states
   const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -43,14 +45,13 @@ export function AuthModal({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Sync internal mode state when the modal opens (initialMode may change between opens)
-  // This is needed because useState only captures the initial prop on first mount.
-  // When ApplyModal switches between 'LOGIN' and 'REGISTER' and opens this modal,
-  // the effect ensures the correct tab is shown.
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
       setErrorMessage(null);
       setSuccessNotice(null);
+      setPassword('');
+      setShowPassword(false);
     }
   }, [isOpen, initialMode]);
 
@@ -64,7 +65,7 @@ export function AuthModal({
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const res = await loginUser(loginIdentifier);
+    const res = await loginUser(loginIdentifier, password);
     setIsSubmitting(false);
 
     if (res.success) {
@@ -76,6 +77,11 @@ export function AuthModal({
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password || password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -84,6 +90,7 @@ export function AuthModal({
         fullName,
         phone,
         email,
+        password,
         role,
         county: 'Nairobi',
         subcounty,
@@ -175,6 +182,31 @@ export function AuthModal({
               <span className="text-[11px] text-slate-400 mt-1 block">
                 Enter either the email or phone number you registered with.
               </span>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Password
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your account password"
+                  className="w-full text-xs p-3 pr-10 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43] focus:border-[#102A43] transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <Button
@@ -306,6 +338,29 @@ export function AuthModal({
                     />
                   </div>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Account Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create a secure password (min 6 characters)"
+                    className="w-full text-xs p-2.5 pr-10 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">Used to securely sign in to your profile.</span>
               </div>
             </div>
 

@@ -75,6 +75,7 @@ export interface User {
   email: string;
   phone: string;
   role: UserRole;
+  password?: string;
   isActive: boolean;
   isVerified: boolean;
   createdAt: string;

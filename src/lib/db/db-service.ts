@@ -28,6 +28,7 @@ export class DatabaseService {
     phone: string;
     email: string;
     role: UserRole;
+    password?: string;
     county?: string;
     subcounty?: string;
     experienceYears?: number;
@@ -37,15 +38,20 @@ export class DatabaseService {
     const profileId = generateUUID();
     let supabaseSynced = true;
 
-    // 1. Insert into users
-    const { error: userError } = await supabase.from('users').insert({
+    // 1. Insert into users (including password if provided)
+    const userInsertData: any = {
       id: userId,
       email: params.email.trim().toLowerCase(),
       phone: params.phone.trim(),
       role: params.role,
       is_active: true,
       is_verified: true,
-    });
+    };
+    if (params.password) {
+      userInsertData.password = params.password.trim();
+    }
+
+    const { error: userError } = await supabase.from('users').insert(userInsertData);
 
     if (userError) {
       if (userError.code === '23505') {
@@ -155,6 +161,7 @@ export class DatabaseService {
       email: params.email.trim().toLowerCase(),
       phone: params.phone.trim(),
       role: params.role,
+      password: params.password?.trim(),
       isActive: true,
       isVerified: true,
       createdAt: new Date().toISOString(),
@@ -174,7 +181,7 @@ export class DatabaseService {
     return { user, profile, roleRecord, supabaseSynced };
   }
 
-  async loginUser(identifier: string): Promise<{
+  async loginUser(identifier: string, password?: string): Promise<{
     user: User;
     profile?: Profile;
     roleRecord?: DriverProfile | PartnerProfile;
@@ -193,11 +200,23 @@ export class DatabaseService {
     }
 
     const u = usersData[0];
+
+    // Password validation if password is set on the account
+    if (u.password) {
+      if (!password || !password.trim()) {
+        throw new Error('Please enter your password to sign in.');
+      }
+      if (u.password !== password.trim()) {
+        throw new Error('Incorrect password. Please verify your credentials and try again.');
+      }
+    }
+
     const user: User = {
       id: u.id,
       email: u.email,
       phone: u.phone,
       role: u.role,
+      password: u.password,
       isActive: u.is_active,
       isVerified: u.is_verified,
       createdAt: u.created_at,
@@ -416,6 +435,24 @@ export class DatabaseService {
   async deleteVehicle(id: string): Promise<boolean> {
     const { error } = await supabase.from('vehicles').delete().eq('id', id);
     if (error) console.warn('Supabase vehicle delete notice:', error.message);
+    return !error;
+  }
+
+  async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<boolean> {
+    const row: Record<string, any> = {};
+    if (updates.make !== undefined) row.make = updates.make;
+    if (updates.model !== undefined) row.model = updates.model;
+    if (updates.year !== undefined) row.year = updates.year;
+    if (updates.registrationNumber !== undefined) row.registration_number = updates.registrationNumber;
+    if (updates.transmission !== undefined) row.transmission = updates.transmission;
+    if (updates.fuelType !== undefined) row.fuel_type = updates.fuelType;
+    if (updates.color !== undefined) row.color = updates.color;
+    if (updates.primarySubcounty !== undefined) row.primary_subcounty = updates.primarySubcounty;
+    if (updates.availabilityStatus !== undefined) row.availability_status = updates.availabilityStatus;
+    row.updated_at = new Date().toISOString();
+
+    const { error } = await supabase.from('vehicles').update(row).eq('id', id);
+    if (error) console.warn('Supabase vehicle update notice:', error.message);
     return !error;
   }
 

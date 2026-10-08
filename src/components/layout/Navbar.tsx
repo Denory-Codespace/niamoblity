@@ -100,16 +100,19 @@ export default function Navbar() {
 
               {/* Desktop Navigation Links */}
               <nav className="hidden lg:flex items-center gap-1 pl-4">
-                <Link
-                  href="/vehicles"
-                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                    pathname.startsWith('/vehicles')
-                      ? 'bg-[#DCEEFF] text-[#102A43]'
-                      : 'text-slate-600 hover:text-[#102A43] hover:bg-slate-100'
-                  }`}
-                >
-                  Find a Vehicle
-                </Link>
+                {/* Find a Vehicle — Only for Drivers and Guests */}
+                {role !== 'PARTNER' && role !== 'ADMIN' && (
+                  <Link
+                    href="/vehicles"
+                    className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                      pathname.startsWith('/vehicles')
+                        ? 'bg-[#DCEEFF] text-[#102A43]'
+                        : 'text-slate-600 hover:text-[#102A43] hover:bg-slate-100'
+                    }`}
+                  >
+                    Find a Vehicle
+                  </Link>
+                )}
                 <Link
                   href="/how-it-works"
                   className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
@@ -166,7 +169,17 @@ export default function Navbar() {
                           : 'text-slate-600 hover:text-[#102A43] hover:bg-slate-100'
                       }`}
                     >
-                      Partner Hub
+                      Fleet Hub
+                    </Link>
+                    <Link
+                      href="/partner/vehicles"
+                      className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        pathname === '/partner/vehicles'
+                          ? 'bg-[#FFF1B8] text-[#92400E]'
+                          : 'text-slate-600 hover:text-[#102A43] hover:bg-slate-100'
+                      }`}
+                    >
+                      My Vehicles
                     </Link>
                     <Link
                       href="/partner/applications"
@@ -177,6 +190,16 @@ export default function Navbar() {
                       }`}
                     >
                       Applicants
+                    </Link>
+                    <Link
+                      href="/partner/agreements"
+                      className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        pathname === '/partner/agreements'
+                          ? 'bg-[#FFF1B8] text-[#92400E]'
+                          : 'text-slate-600 hover:text-[#102A43] hover:bg-slate-100'
+                      }`}
+                    >
+                      Agreements
                     </Link>
                   </>
                 )}
@@ -293,14 +316,17 @@ export default function Navbar() {
         {/* Mobile Drawer */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-2 pb-6 space-y-2">
-            <Link
-              href="/vehicles"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-slate-800 hover:bg-slate-100"
-            >
-              <Search className="w-5 h-5 text-blue-600" />
-              Find a Vehicle
-            </Link>
+            {/* Find a Vehicle — only shown to drivers and guests */}
+            {role !== 'PARTNER' && role !== 'ADMIN' && (
+              <Link
+                href="/vehicles"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-slate-800 hover:bg-slate-100"
+              >
+                <Search className="w-5 h-5 text-blue-600" />
+                Find a Vehicle
+              </Link>
+            )}
             <Link
               href="/how-it-works"
               onClick={() => setMobileMenuOpen(false)}
@@ -345,21 +371,18 @@ export default function Navbar() {
                   <span className="text-slate-500">{role} Account</span>
                 </div>
                 {role === 'PARTNER' ? (
-                  <Link
-                    href="/partner/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg"
-                  >
-                    Partner Hub
-                  </Link>
+                  <>
+                    <Link href="/partner/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg">Fleet Hub</Link>
+                    <Link href="/partner/vehicles" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg">My Vehicles</Link>
+                    <Link href="/partner/applications" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg">Applicants</Link>
+                    <Link href="/partner/agreements" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 rounded-lg">Agreements</Link>
+                  </>
                 ) : (
-                  <Link
-                    href="/driver/matches"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg"
-                  >
-                    My Driver Matches
-                  </Link>
+                  <>
+                    <Link href="/driver/matches" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg">My Driver Matches</Link>
+                    <Link href="/driver/applications" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg">Applications</Link>
+                    <Link href="/driver/agreements" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg">Agreements</Link>
+                  </>
                 )}
                 <button
                   onClick={() => { logout(); setMobileMenuOpen(false); }}

@@ -28,20 +28,51 @@ export default function PartnerApplicationsPage() {
   const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
 
   const partnerId = partnerProfile?.id;
+  const userId = currentProfile?.userId;
 
   useEffect(() => {
     setMounted(true);
     const update = () => {
-      if (partnerId) {
-        setApplications(marketplaceStore.applications.filter(a => a.partnerId === partnerId));
-      } else {
-        setApplications([]);
-      }
+      const pid = partnerProfile?.id;
+      const uid = currentProfile?.userId;
+
+      const raw = marketplaceStore.applications.filter(a => {
+        if (pid && a.partnerId === pid) return true;
+        if (uid && a.partnerId === uid) return true;
+        if (!pid && !uid) return true;
+        return false;
+      });
+
+      // Enrich driver and listing details if needed
+      const enriched = raw.map(app => {
+        const listing = app.listing || marketplaceStore.listings.find(l => l.id === app.listingId);
+        const driver = marketplaceStore.drivers.find(d => d.id === app.driverId);
+        const driverProf = marketplaceStore.profiles.find(p => p.userId === driver?.userId);
+        const driverUser = marketplaceStore.users.find(u => u.id === driver?.userId);
+        return {
+          ...app,
+          listing: listing || app.listing,
+          driver: {
+            id: app.driver?.id || app.driverId,
+            fullName: app.driver?.fullName || driverProf?.fullName || 'Verified Driver',
+            experienceYears: app.driver?.experienceYears || driver?.drivingExperienceYears || 3,
+            locationSubcounty: app.driver?.locationSubcounty || driverProf?.locationSubcounty || 'Nairobi',
+            ratingAvg: app.driver?.ratingAvg || driver?.ratingAvg || 4.9,
+            isVerified: app.driver?.isVerified ?? driver?.identityVerified ?? true,
+            preferredPlatforms: app.driver?.preferredPlatforms || driver?.preferredPlatforms || ['Uber', 'Bolt'],
+            phone: app.driver?.phone || driverUser?.phone,
+            avatarUrl: app.driver?.avatarUrl || driverProf?.avatarUrl,
+          },
+        };
+      });
+
+      setApplications(enriched);
     };
+
     update();
     const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, [partnerId]);
+  }, [partnerId, userId, partnerProfile?.id, currentProfile?.userId]);
 
   const handleStatusChange = (appId: string, newStatus: ApplicationStatus, reason?: string) => {
     const reviewerId = currentProfile?.userId || '';

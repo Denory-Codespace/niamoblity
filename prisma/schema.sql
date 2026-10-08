@@ -8,23 +8,71 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Enum Types
-CREATE TYPE user_role AS ENUM ('DRIVER', 'PARTNER', 'ADMIN', 'SUPPORT');
-CREATE TYPE verification_status AS ENUM ('UNVERIFIED', 'UNDER_REVIEW', 'VERIFIED', 'REJECTED');
-CREATE TYPE arrangement_type AS ENUM ('DAILY_TARGET', 'WEEKLY_TARGET', 'MONTHLY_TARGET', 'REVENUE_SHARE', 'OTHER');
-CREATE TYPE payment_frequency AS ENUM ('DAILY', 'WEEKLY', 'BI_WEEKLY', 'MONTHLY');
-CREATE TYPE responsibility_type AS ENUM ('DRIVER', 'PARTNER', 'SHARED', 'SHARED_50_50');
-CREATE TYPE vehicle_type AS ENUM ('SEDAN', 'HATCHBACK', 'SUV', 'VAN', 'MOTORCYCLE', 'BOX_TRUCK');
-CREATE TYPE transmission_type AS ENUM ('AUTOMATIC', 'MANUAL');
-CREATE TYPE fuel_type AS ENUM ('PETROL', 'DIESEL', 'HYBRID', 'ELECTRIC');
-CREATE TYPE listing_status AS ENUM ('DRAFT', 'PUBLISHED', 'PAUSED', 'CLOSED', 'EXPIRED');
-CREATE TYPE application_status AS ENUM ('SUBMITTED', 'VIEWED', 'SHORTLISTED', 'INTERVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED');
-CREATE TYPE agreement_status AS ENUM ('DRAFT', 'PENDING_DRIVER', 'PENDING_PARTNER', 'ACTIVE', 'SUSPENDED', 'COMPLETED', 'TERMINATED', 'DISPUTED');
+DO $$
+BEGIN
+    BEGIN
+        CREATE TYPE public.user_role AS ENUM ('DRIVER', 'PARTNER', 'ADMIN', 'SUPPORT');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.verification_status AS ENUM ('UNVERIFIED', 'UNDER_REVIEW', 'VERIFIED', 'REJECTED');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.arrangement_type AS ENUM ('DAILY_TARGET', 'WEEKLY_TARGET', 'MONTHLY_TARGET', 'REVENUE_SHARE', 'OTHER');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.payment_frequency AS ENUM ('DAILY', 'WEEKLY', 'BI_WEEKLY', 'MONTHLY');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.responsibility_type AS ENUM ('DRIVER', 'PARTNER', 'SHARED', 'SHARED_50_50');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.vehicle_type AS ENUM ('SEDAN', 'HATCHBACK', 'SUV', 'VAN', 'MOTORCYCLE', 'BOX_TRUCK');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.transmission_type AS ENUM ('AUTOMATIC', 'MANUAL');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.fuel_type AS ENUM ('PETROL', 'DIESEL', 'HYBRID', 'ELECTRIC');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.listing_status AS ENUM ('DRAFT', 'PUBLISHED', 'PAUSED', 'CLOSED', 'EXPIRED');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.application_status AS ENUM ('SUBMITTED', 'VIEWED', 'SHORTLISTED', 'INTERVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        CREATE TYPE public.agreement_status AS ENUM ('DRAFT', 'PENDING_DRIVER', 'PENDING_PARTNER', 'ACTIVE', 'SUSPENDED', 'COMPLETED', 'TERMINATED', 'DISPUTED');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+END
+$$;
 
 -- 1. Users Table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     phone VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NULL,
     role user_role NOT NULL DEFAULT 'DRIVER',
     is_active BOOLEAN DEFAULT TRUE,
     is_verified BOOLEAN DEFAULT FALSE,
@@ -32,6 +80,8 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL
 );
+
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password VARCHAR(255) NULL;
 
 -- 2. Profiles Table
 CREATE TABLE profiles (

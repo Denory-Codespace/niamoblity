@@ -7,6 +7,7 @@ import { Agreement } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatKes, formatDateEAT } from '@/lib/utils';
+import Link from 'next/link';
 import {
   FileCheck2,
   ShieldCheck,
@@ -16,7 +17,7 @@ import {
   AlertTriangle,
   PenTool,
   Printer,
-  Link,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function DriverAgreementsPage() {
@@ -25,19 +26,40 @@ export default function DriverAgreementsPage() {
   const [signingId, setSigningId] = useState<string | null>(null);
 
   const driverId = driverProfile?.id;
+  const userId = currentProfile?.userId;
 
   useEffect(() => {
     const update = () => {
-      if (driverId) {
-        setAgreements(marketplaceStore.agreements.filter(a => a.driverId === driverId));
-      } else {
-        setAgreements([]);
-      }
+      const did = driverProfile?.id;
+      const uid = currentProfile?.userId;
+
+      const filtered = marketplaceStore.agreements.filter(a => {
+        if (did && a.driverId === did) return true;
+        if (uid && a.driverId === uid) return true;
+        if (!did && !uid) return true;
+        return false;
+      });
+
+      // Enrich vehicle and partner details if needed
+      const enriched = filtered.map(agr => {
+        const listing = marketplaceStore.listings.find(l => l.id === agr.listingId);
+        const vehicle = agr.vehicle || listing?.vehicle || marketplaceStore.vehicles.find(v => v.id === agr.vehicleId || v.partnerId === agr.partnerId);
+        const partner = marketplaceStore.partners.find(p => p.id === agr.partnerId);
+        const partnerProf = marketplaceStore.profiles.find(p => p.userId === partner?.userId);
+        return {
+          ...agr,
+          vehicle: vehicle || agr.vehicle,
+          partnerName: agr.partnerName || partnerProf?.fullName || 'Vehicle Partner',
+        };
+      });
+
+      setAgreements(enriched);
     };
+
     update();
     const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, [driverId]);
+  }, [driverId, userId, driverProfile?.id, currentProfile?.userId]);
 
   const handleSign = (agreementId: string) => {
     setSigningId(agreementId);

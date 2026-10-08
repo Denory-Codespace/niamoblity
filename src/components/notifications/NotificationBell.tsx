@@ -29,6 +29,7 @@ export function NotificationBell() {
   const userId = currentProfile?.userId || 'guest';
 
   const prevUnreadCountRef = useRef<number>(0);
+  const isFirstRunRef = useRef<boolean>(true);
 
   useEffect(() => {
     setMounted(true);
@@ -37,10 +38,11 @@ export function NotificationBell() {
         const fresh = marketplaceStore.getNotificationsByUser(userId);
         setNotifications(fresh);
         const newUnread = fresh.filter(n => !n.isRead).length;
-        // Play sound only when unread count increases (new notification arrived)
-        if (newUnread > prevUnreadCountRef.current) {
+        // Play sound only when a new notification arrives in real-time
+        if (!isFirstRunRef.current && newUnread > prevUnreadCountRef.current) {
           playNotificationSound();
         }
+        isFirstRunRef.current = false;
         prevUnreadCountRef.current = newUnread;
       }
     };

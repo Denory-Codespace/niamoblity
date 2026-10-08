@@ -6,13 +6,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Car, LogIn, Users, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Car, LogIn, Users, AlertCircle, ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
 import { UserRole } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
   const { loginUser, isAuthenticated, role } = useAuth();
   const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -26,13 +28,17 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const res = await loginUser(identifier);
+    const res = await loginUser(identifier, password);
     setIsSubmitting(false);
 
     if (res.success) {
-      router.push('/vehicles');
+      if (res.user?.role === 'PARTNER') {
+        router.push('/partner/dashboard');
+      } else {
+        router.push('/vehicles');
+      }
     } else {
-      setErrorMessage(res.error || 'Account not found. Please register.');
+      setErrorMessage(res.error || 'Account not found or password incorrect. Please check your credentials.');
     }
   };
 
@@ -76,6 +82,29 @@ export default function LoginPage() {
                 placeholder="e.g. driver@example.com or 0712345678"
                 className="w-full text-xs p-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43] focus:border-[#102A43]"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">Password</label>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your account password"
+                  className="w-full text-xs p-3.5 pr-10 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43] focus:border-[#102A43]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <Button

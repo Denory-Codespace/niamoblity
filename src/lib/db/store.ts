@@ -43,6 +43,7 @@ class MarketplaceStore {
   private listeners: Set<() => void> = new Set();
   private isLoaded = false;
   private realtimeChannel: any = null;
+  private broadcastBus: any = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -65,11 +66,43 @@ class MarketplaceStore {
     this.listeners.forEach(fn => fn());
   }
 
+  public broadcastEvent(event: string, payload: any) {
+    if (typeof window === 'undefined') return;
+    try {
+      // 1. Native cross-tab broadcast (instant across browser tabs/windows)
+      if (this.broadcastBus) {
+        this.broadcastBus.postMessage({ event, payload });
+      }
+      // 2. Supabase Realtime websocket broadcast (cross-device/network)
+      if (this.realtimeChannel) {
+        this.realtimeChannel.send({
+          type: 'broadcast',
+          event,
+          payload,
+        });
+      }
+    } catch (e) {
+      console.warn('Realtime broadcast dispatch notice:', e);
+    }
+  }
+
   public async initStore() {
     this.loadFromStorage();
     try {
       // Pull fresh data from Supabase as single source of truth
-      const [remoteUsers, remoteProfiles, remoteDrivers, remotePartners, remoteVehicles, remoteListings, remoteApplications, remoteAgreements] = await Promise.all([
+      const [
+        remoteUsers,
+        remoteProfiles,
+        remoteDrivers,
+        remotePartners,
+        remoteVehicles,
+        remoteListings,
+        remoteApplications,
+        remoteAgreements,
+        remoteConversations,
+        remoteMessages,
+        remoteNotifications,
+      ] = await Promise.all([
         dbService.getUsers(),
         dbService.getProfiles(),
         dbService.getDrivers(),
@@ -78,17 +111,36 @@ class MarketplaceStore {
         dbService.getListings(),
         dbService.getApplications(),
         dbService.getAgreements(),
+        dbService.getConversations(),
+        dbService.getMessages(),
+        dbService.getNotifications(),
       ]);
 
-      // If we received valid responses from Supabase, sync exact state (including 0 items if database was cleared)
-      this.users = remoteUsers;
-      this.profiles = remoteProfiles;
-      this.drivers = remoteDrivers;
-      this.partners = remotePartners;
-      this.vehicles = remoteVehicles;
-      this.listings = remoteListings;
-      this.applications = remoteApplications;
-      this.agreements = remoteAgreements;
+      if (remoteUsers.length > 0) this.users = remoteUsers;
+      if (remoteProfiles.length > 0) this.profiles = remoteProfiles;
+      if (remoteDrivers.length > 0) this.drivers = remoteDrivers;
+      if (remotePartners.length > 0) this.partners = remotePartners;
+      if (remoteVehicles.length > 0) this.vehicles = remoteVehicles;
+      if (remoteListings.length > 0) this.listings = remoteListings;
+      if (remoteApplications.length > 0) this.applications = remoteApplications;
+      if (remoteAgreements.length > 0) this.agreements = remoteAgreements;
+
+      // Merge messages & conversations if found remotely
+      if (remoteConversations && remoteConversations.length > 0) {
+        remoteConversations.forEach(rc => {
+          if (!this.conversations.some(c => c.id === rc.id)) this.conversations.push(rc);
+        });
+      }
+      if (remoteMessages && remoteMessages.length > 0) {
+        remoteMessages.forEach(rm => {
+          if (!this.messages.some(m => m.id === rm.id)) this.messages.push(rm);
+        });
+      }
+      if (remoteNotifications && remoteNotifications.length > 0) {
+        remoteNotifications.forEach(rn => {
+          if (!this.notifications.some(n => n.id === rn.id)) this.notifications.unshift(rn);
+        });
+      }
 
       this.notify();
     } catch (e) {
@@ -98,16 +150,93 @@ class MarketplaceStore {
   }
 
   private setupRealtimeSync() {
-    if (typeof window === 'undefined' || this.realtimeChannel) return;
-    try {
-      this.realtimeChannel = supabase
-        .channel('nia-realtime-hub')
-        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-          this.initStore();
-        })
-        .subscribe();
-    } catch (e) {
-      console.warn('Supabase Realtime subscription note:', e);
+    if (typeof window === 'undefined') return;
+
+    // A. Native BroadcastChannel for instant cross-tab sync in the browser
+    if (!this.broadcastBus && typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.broadcastBus = new BroadcastChannel('nia_mobility_live_bus');
+        this.broadcastBus.onmessage = (ev: MessageEvent) => {
+          if (ev.data && ev.data.event) {
+            this.handleIncomingRealtimeEvent(ev.data.event, ev.data.payload);
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel initialization notice:', err);
+      }
+    }
+
+    // B. Supabase Realtime channel for cross-device/network synchronization
+    if (!this.realtimeChannel) {
+      try {
+        this.realtimeChannel = supabase
+          .channel('nia-realtime-hub')
+          .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+            this.initStore();
+          })
+          .on('broadcast', { event: '*' }, (payload: any) => {
+            if (payload && payload.event) {
+              this.handleIncomingRealtimeEvent(payload.event, payload.payload);
+            }
+          })
+          .subscribe();
+      } catch (e) {
+        console.warn('Supabase Realtime subscription note:', e);
+      }
+    }
+  }
+
+  private handleIncomingRealtimeEvent(event: string, payload: any) {
+    if (!payload) return;
+
+    if (event === 'new_message') {
+      const exists = this.messages.some(m => m.id === payload.id);
+      if (!exists) {
+        this.messages.push(payload);
+        const conv = this.conversations.find(c => c.id === payload.conversationId);
+        if (conv) {
+          conv.lastMessage = payload.content;
+          conv.lastMessageAt = payload.createdAt || new Date().toISOString();
+          conv.unreadCount = (conv.unreadCount || 0) + 1;
+        }
+        this.notify();
+      }
+    } else if (event === 'new_notification') {
+      const exists = this.notifications.some(n => n.id === payload.id);
+      if (!exists) {
+        this.notifications.unshift(payload);
+        this.notify();
+      }
+    } else if (event === 'new_application') {
+      const exists = this.applications.some(a => a.id === payload.id);
+      if (!exists) {
+        this.applications.unshift(payload);
+        const listing = this.listings.find(l => l.id === payload.listingId);
+        if (listing) listing.applicationsCount = (listing.applicationsCount || 0) + 1;
+        this.notify();
+      }
+    } else if (event === 'application_status_changed') {
+      const app = this.applications.find(a => a.id === payload.appId);
+      if (app) {
+        app.status = payload.newStatus;
+        if (payload.reason) app.statusReason = payload.reason;
+        app.updatedAt = new Date().toISOString();
+        this.notify();
+      }
+    } else if (event === 'new_agreement') {
+      const exists = this.agreements.some(a => a.id === payload.id);
+      if (!exists) {
+        this.agreements.unshift(payload);
+        this.notify();
+      }
+    } else if (event === 'agreement_signed') {
+      const agr = this.agreements.find(a => a.id === payload.agreementId);
+      if (agr) {
+        if (payload.signerRole === 'DRIVER') agr.driverSignedAt = payload.signedAt;
+        else agr.partnerSignedAt = payload.signedAt;
+        agr.status = payload.status;
+        this.notify();
+      }
     }
   }
 
@@ -183,6 +312,13 @@ class MarketplaceStore {
       createdAt: new Date().toISOString(),
     };
     this.notifications.unshift(notif);
+
+    // Persist to Supabase Database
+    dbService.createNotification(notif).catch(e => console.warn('Supabase notif save:', e));
+
+    // Broadcast across browser tabs and Supabase websocket
+    this.broadcastEvent('new_notification', notif);
+
     this.notify();
     return notif;
   }
@@ -236,6 +372,7 @@ class MarketplaceStore {
         createdAt: new Date().toISOString(),
       };
       this.conversations.unshift(conv);
+      dbService.createOrUpdateConversation(conv).catch(e => console.warn('Supabase conv create:', e));
       this.notify();
     }
 
@@ -272,16 +409,28 @@ class MarketplaceStore {
       conv.lastMessage = params.content;
       conv.lastMessageAt = new Date().toISOString();
       conv.unreadCount += 1;
+      dbService.createOrUpdateConversation(conv).catch(e => console.warn('Supabase conv update:', e));
     }
+
+    // Persist to Supabase Database
+    dbService.createMessage(newMsg).catch(e => console.warn('Supabase msg save:', e));
+
+    // Broadcast across tabs and Supabase websocket
+    this.broadcastEvent('new_message', newMsg);
 
     // Trigger in-app notification for recipient
     if (params.recipientUserId) {
+      const recipientUser = this.users.find(u => u.id === params.recipientUserId);
+      const linkUrl = recipientUser?.role === 'PARTNER'
+        ? '/partner/applications'
+        : '/driver/applications';
+
       this.addNotification({
         userId: params.recipientUserId,
-        title: `New Message from ${params.senderName}`,
-        message: params.content.length > 60 ? params.content.substring(0, 60) + '...' : params.content,
+        title: `💬 New Message from ${params.senderName}`,
+        message: params.content.length > 80 ? params.content.substring(0, 80) + '...' : params.content,
         type: 'MESSAGE',
-        linkUrl: `/driver/applications`,
+        linkUrl,
       });
     }
 
@@ -375,6 +524,7 @@ class MarketplaceStore {
     phone: string;
     email: string;
     role: UserRole;
+    password?: string;
     county?: string;
     subcounty?: string;
     experienceYears?: number;
@@ -408,10 +558,10 @@ class MarketplaceStore {
   }
 
   // --- Real Login Flow ---
-  public async loginUser(identifier: string) {
+  public async loginUser(identifier: string, password?: string) {
     // 1. Try Supabase lookup
     try {
-      const remote = await dbService.loginUser(identifier);
+      const remote = await dbService.loginUser(identifier, password);
       if (remote) {
         if (!this.users.some(u => u.id === remote.user.id)) this.users.unshift(remote.user);
         if (remote.profile && !this.profiles.some(p => p.id === remote.profile!.id)) this.profiles.unshift(remote.profile);
@@ -431,7 +581,11 @@ class MarketplaceStore {
           partnerProfile: remote.user.role === 'PARTNER' ? (remote.roleRecord as PartnerProfile) : null,
         };
       }
-    } catch (e) {
+    } catch (e: any) {
+      // If password error thrown from dbService, rethrow so UI can display it
+      if (e.message && (e.message.includes('password') || e.message.includes('Password'))) {
+        throw e;
+      }
       console.warn('Supabase login check error:', e);
     }
 
@@ -439,6 +593,15 @@ class MarketplaceStore {
     const clean = identifier.trim().toLowerCase();
     const localUser = this.users.find(u => u.email.toLowerCase() === clean || u.phone.includes(clean));
     if (localUser) {
+      if (localUser.password) {
+        if (!password || !password.trim()) {
+          throw new Error('Please enter your password to sign in.');
+        }
+        if (localUser.password !== password.trim()) {
+          throw new Error('Incorrect password. Please verify your credentials and try again.');
+        }
+      }
+
       const profile = this.profiles.find(p => p.userId === localUser.id) || null;
       const driverProfile = this.drivers.find(d => d.userId === localUser.id) || null;
       const partnerProfile = this.partners.find(p => p.userId === localUser.id) || null;
@@ -519,6 +682,16 @@ class MarketplaceStore {
     return newVehicle;
   }
 
+  public async updateVehicle(id: string, updates: Partial<Vehicle>) {
+    await dbService.updateVehicle(id, updates);
+    const vehicle = this.vehicles.find(v => v.id === id);
+    if (vehicle) {
+      Object.assign(vehicle, updates, { updatedAt: new Date().toISOString() });
+      this.notify();
+    }
+    return vehicle;
+  }
+
   public async deleteVehicle(id: string) {
     await dbService.deleteVehicle(id);
     this.vehicles = this.vehicles.filter(v => v.id !== id);
@@ -557,16 +730,19 @@ class MarketplaceStore {
       }
     });
 
-    listing.applicationsCount += 1;
+    listing.applicationsCount = (listing.applicationsCount || 0) + 1;
     this.applications.unshift(newApp);
 
-    // Notify Partner
+    // Broadcast new application across tabs and network
+    this.broadcastEvent('new_application', newApp);
+
+    // Notify Partner — Partner now gets an instant notification chime + bell update in real-time
     const partner = this.partners.find(p => p.id === listing.partnerId);
     if (partner) {
       this.addNotification({
         userId: partner.userId,
-        title: `New Driver Application (${matchBreakdown.totalScorePct}% Match)`,
-        message: `${driverProfile?.fullName || 'A driver'} applied for "${listing.title}".`,
+        title: `🚨 New Driver Application (${matchBreakdown.totalScorePct}% Match)`,
+        message: `${driverProfile?.fullName || 'A driver'} applied for "${listing.title}". Review their profile in Screening Room.`,
         type: 'APPLICATION',
         linkUrl: '/partner/applications',
       });
@@ -597,51 +773,95 @@ class MarketplaceStore {
     app.lastStatusChangedAt = new Date().toISOString();
     app.updatedAt = new Date().toISOString();
 
+    // Broadcast status change immediately to all tabs & devices
+    this.broadcastEvent('application_status_changed', {
+      appId,
+      newStatus,
+      actorId,
+      reason,
+    });
+
     if (newStatus === "ACCEPTED") {
-      const existingAgr = this.agreements.find(agr => agr.applicationId === appId);
-      if (!existingAgr && app.listing) {
+      let existingAgr = this.agreements.find(agr => agr.applicationId === appId);
+      if (!existingAgr) {
+        // Find listing, vehicle, driver, partner reliably
+        const listing = app.listing || this.listings.find(l => l.id === app.listingId);
+        const driver = this.drivers.find(d => d.id === app.driverId);
+        const driverProfile = this.profiles.find(p => p.userId === driver?.userId);
+        const partner = this.partners.find(p => p.id === app.partnerId);
+        const partnerProfile = this.profiles.find(p => p.userId === partner?.userId);
+        const vehicle = listing?.vehicle || this.vehicles.find(v => v.id === listing?.vehicleId || v.partnerId === app.partnerId);
+
         const newAgr = await dbService.createAgreement({
           agreementNumber: `NIA-AGR-2026-${Math.floor(1000 + Math.random() * 9000)}`,
           applicationId: app.id,
           listingId: app.listingId,
           driverId: app.driverId,
           partnerId: app.partnerId,
-          vehicleId: app.listing.vehicleId,
-          arrangementType: app.listing.arrangementType,
-          targetAmountKes: app.listing.targetAmountKes,
-          depositAmountKes: app.listing.depositAmountKes,
-          paymentFrequency: app.listing.paymentFrequency,
-          fuelTerms: `Fuel cost borne by ${app.listing.fuelResponsibility}.`,
-          maintenanceTerms: `Regular servicing borne by ${app.listing.maintenanceResponsibility}.`,
-          insuranceTerms: `PSV Commercial Insurance maintained by ${app.listing.insuranceResponsibility}.`,
-          operatingArea: `${app.listing.county} (${app.listing.subcounty || 'All Areas'})`,
+          vehicleId: listing?.vehicleId || vehicle?.id || app.partnerId,
+          arrangementType: listing?.arrangementType || 'DAILY_TARGET',
+          targetAmountKes: listing?.targetAmountKes || 3000,
+          depositAmountKes: listing?.depositAmountKes || 0,
+          paymentFrequency: listing?.paymentFrequency || 'DAILY',
+          fuelTerms: listing?.fuelResponsibility ? `Fuel cost borne by ${listing.fuelResponsibility}.` : 'Fuel cost borne by DRIVER.',
+          maintenanceTerms: listing?.maintenanceResponsibility ? `Regular servicing borne by ${listing.maintenanceResponsibility}.` : 'Routine servicing by PARTNER.',
+          insuranceTerms: listing?.insuranceResponsibility ? `PSV Commercial Insurance maintained by ${listing.insuranceResponsibility}.` : 'PSV Comprehensive Insurance by PARTNER.',
+          operatingArea: listing ? `${listing.county} (${listing.subcounty || 'All Areas'})` : 'Nairobi County',
           startDate: new Date().toISOString(),
           termsAndConditions: "Standard nia mobility commercial framework. Remittance via Safaricom M-PESA Daraja. Digital signature binding.",
           status: "PENDING_DRIVER",
-          vehicle: app.listing.vehicle,
-          driverName: app.driver?.fullName || "Driver",
-          partnerName: app.partner?.fullName || "Partner",
+          vehicle: vehicle || listing?.vehicle,
+          driverName: driverProfile?.fullName || app.driver?.fullName || "Verified Driver",
+          partnerName: partnerProfile?.fullName || app.partner?.fullName || "Vehicle Partner",
         });
+
         this.agreements.unshift(newAgr);
+        // Broadcast new agreement to partner and driver screens
+        this.broadcastEvent('new_agreement', newAgr);
       }
     }
 
     // Trigger notification to the driver
     const driver = this.drivers.find(d => d.id === app.driverId);
     if (driver) {
-      const statusLabels: Record<string, string> = {
-        SHORTLISTED: 'Shortlisted ✨',
-        INTERVIEW: 'Invited to Interview / Chat 💬',
-        ACCEPTED: 'Application Accepted 🎉 Operating Agreement Ready',
-        REJECTED: 'Application Declined',
+      const listing = app.listing || this.listings.find(l => l.id === app.listingId);
+      const statusMessages: Record<string, string> = {
+        SHORTLISTED: `The vehicle partner has shortlisted your application for "${listing?.title || 'the listing'}". Stay ready!`,
+        INTERVIEW: `The vehicle partner has opened a direct chat with you regarding "${listing?.title || 'the listing'}". Open chat to respond.`,
+        ACCEPTED: `🎉 Congratulations! Your application for "${listing?.title || 'the vehicle'}" has been accepted. An operating agreement is ready for your review and digital signature.`,
+        REJECTED: reason || `Your application for "${listing?.title || 'the vehicle'}" was not progressed at this time.`,
       };
+      const statusLabels: Record<string, string> = {
+        SHORTLISTED: '✨ You have been Shortlisted!',
+        INTERVIEW: '💬 Partner Opened a Chat with You',
+        ACCEPTED: '🎉 Application Accepted — Agreement Ready!',
+        REJECTED: 'Application Update',
+      };
+      const linkUrl = newStatus === 'ACCEPTED' ? '/driver/agreements' : '/driver/applications';
+
       this.addNotification({
         userId: driver.userId,
         title: statusLabels[newStatus] || `Status Update: ${newStatus}`,
-        message: reason || `Your application status for "${app.listing?.title || 'the vehicle'}" is now ${newStatus}.`,
-        type: newStatus === 'ACCEPTED' ? 'AGREEMENT' : 'APPLICATION',
-        linkUrl: newStatus === 'ACCEPTED' ? '/driver/agreements' : '/driver/applications',
+        message: statusMessages[newStatus] || `Your application status for "${listing?.title || 'the vehicle'}" is now ${newStatus}.`,
+        type: newStatus === 'ACCEPTED' ? 'AGREEMENT' : (newStatus === 'INTERVIEW' ? 'MESSAGE' : 'APPLICATION'),
+        linkUrl,
       });
+    }
+
+    // Notify partner when agreement is generated
+    if (newStatus === 'ACCEPTED') {
+      const partner = this.partners.find(p => p.id === app.partnerId);
+      if (partner) {
+        const driver = this.drivers.find(d => d.id === app.driverId);
+        const driverProfile = this.profiles.find(p => p.userId === driver?.userId);
+        this.addNotification({
+          userId: partner.userId,
+          title: '📄 Agreement Ready to Sign',
+          message: `An operating agreement with ${driverProfile?.fullName || 'the driver'} for "${app.listing?.title || 'your listing'}" has been generated. Please review and countersign.`,
+          type: 'AGREEMENT',
+          linkUrl: '/partner/agreements',
+        });
+      }
     }
 
     this.notify();
@@ -661,11 +881,56 @@ class MarketplaceStore {
       agr.partnerSignedAt = timestamp;
     }
 
-    if (agr.driverSignedAt && (agr.partnerSignedAt || agr.status === 'PENDING_DRIVER')) {
-      agr.status = "ACTIVE";
+    // Activate if both parties have signed
+    if (agr.driverSignedAt && agr.partnerSignedAt) {
+      agr.status = 'ACTIVE';
+    } else if (agr.driverSignedAt && !agr.partnerSignedAt) {
+      agr.status = 'PENDING_PARTNER';
+    } else if (!agr.driverSignedAt && agr.partnerSignedAt) {
+      agr.status = 'PENDING_DRIVER';
     }
 
     agr.updatedAt = timestamp;
+
+    // Broadcast signature to other tabs & network
+    this.broadcastEvent('agreement_signed', {
+      agreementId,
+      signerRole: role,
+      signedAt: timestamp,
+      status: agr.status,
+    });
+
+    // Cross-notify the other party
+    if (role === 'DRIVER') {
+      // Driver signed — notify partner to countersign
+      const partner = this.partners.find(p => p.id === agr.partnerId);
+      if (partner) {
+        this.addNotification({
+          userId: partner.userId,
+          title: agr.status === 'ACTIVE' ? '🤝 Agreement Activated & Ready!' : '✍️ Driver Signed Operating Agreement',
+          message: agr.status === 'ACTIVE'
+            ? `Both parties have executed agreement ${agr.agreementNumber}. The vehicle is officially ready for deployment!`
+            : `The driver has signed agreement ${agr.agreementNumber}. Please countersign to finalize.`,
+          type: 'AGREEMENT',
+          linkUrl: '/partner/agreements',
+        });
+      }
+    } else {
+      // Partner signed — notify driver
+      const driver = this.drivers.find(d => d.id === agr.driverId);
+      if (driver) {
+        this.addNotification({
+          userId: driver.userId,
+          title: agr.status === 'ACTIVE' ? '🤝 Agreement Activated & Ready!' : '✍️ Partner Countersigned Agreement',
+          message: agr.status === 'ACTIVE'
+            ? `Agreement ${agr.agreementNumber} is fully activated! Key handover can proceed.`
+            : `The partner has signed agreement ${agr.agreementNumber}. Please sign to finalize.`,
+          type: 'AGREEMENT',
+          linkUrl: '/driver/agreements',
+        });
+      }
+    }
+
     this.notify();
     return agr;
   }

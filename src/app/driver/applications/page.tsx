@@ -21,7 +21,7 @@ import {
 import { ChatModal } from '@/components/chat/ChatModal';
 
 export default function DriverApplicationsPage() {
-  const { driverProfile, isAuthenticated, role, loginAsRole } = useAuth();
+  const { driverProfile, currentProfile, isAuthenticated, role } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
   const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
@@ -29,16 +29,32 @@ export default function DriverApplicationsPage() {
   useEffect(() => {
     setMounted(true);
     const update = () => {
-      if (driverProfile) {
-        setApplications(marketplaceStore.applications.filter(a => a.driverId === driverProfile.id));
-      } else {
-        setApplications([...marketplaceStore.applications]);
-      }
+      const did = driverProfile?.id;
+      const uid = currentProfile?.userId;
+
+      const raw = marketplaceStore.applications.filter(a => {
+        if (did && a.driverId === did) return true;
+        if (uid && a.driverId === uid) return true;
+        if (!did && !uid) return true;
+        return false;
+      });
+
+      // Enrich applications with listing details if missing
+      const enriched = raw.map(app => {
+        const listing = app.listing || marketplaceStore.listings.find(l => l.id === app.listingId);
+        return {
+          ...app,
+          listing: listing || app.listing,
+        };
+      });
+
+      setApplications(enriched);
     };
+
     update();
     const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, [driverProfile]);
+  }, [driverProfile, currentProfile?.userId]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

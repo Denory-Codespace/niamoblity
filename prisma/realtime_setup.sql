@@ -7,11 +7,11 @@
 -- 1. Create Conversations Table
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
-    driver_id UUID REFERENCES drivers(id) ON DELETE CASCADE,
-    partner_id UUID REFERENCES partners(id) ON DELETE CASCADE,
+    driver_id TEXT NOT NULL,
+    partner_id TEXT NOT NULL,
     driver_name VARCHAR(255) NOT NULL,
     partner_name VARCHAR(255) NOT NULL,
-    listing_id UUID REFERENCES vehicle_listings(id) ON DELETE SET NULL,
+    listing_id TEXT NULL,
     listing_title VARCHAR(255) NULL,
     last_message TEXT NULL,
     last_message_at TIMESTAMPTZ DEFAULT NOW(),
@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS conversations (
 -- 2. Create Messages Table
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
-    conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE,
-    sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    conversation_id TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
     sender_name VARCHAR(255) NOT NULL,
     sender_role VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
@@ -31,10 +31,10 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Create Notifications Table
+-- 3. Create Notifications Table (user_id is TEXT to support specific user UUIDs and system-wide broadcast 'ALL')
 CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     type VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',

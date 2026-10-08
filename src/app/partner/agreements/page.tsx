@@ -24,19 +24,40 @@ export default function PartnerAgreementsPage() {
   const [signingId, setSigningId] = useState<string | null>(null);
 
   const partnerId = partnerProfile?.id;
+  const userId = currentProfile?.userId;
 
   useEffect(() => {
     const update = () => {
-      if (partnerId) {
-        setAgreements(marketplaceStore.agreements.filter(a => a.partnerId === partnerId));
-      } else {
-        setAgreements([]);
-      }
+      const pid = partnerProfile?.id;
+      const uid = currentProfile?.userId;
+
+      const filtered = marketplaceStore.agreements.filter(a => {
+        if (pid && a.partnerId === pid) return true;
+        if (uid && a.partnerId === uid) return true;
+        if (!pid && !uid) return true;
+        return false;
+      });
+
+      // Enrich vehicle and driver details if needed
+      const enriched = filtered.map(agr => {
+        const listing = marketplaceStore.listings.find(l => l.id === agr.listingId);
+        const vehicle = agr.vehicle || listing?.vehicle || marketplaceStore.vehicles.find(v => v.id === agr.vehicleId || v.partnerId === agr.partnerId);
+        const driver = marketplaceStore.drivers.find(d => d.id === agr.driverId);
+        const driverProf = marketplaceStore.profiles.find(p => p.userId === driver?.userId);
+        return {
+          ...agr,
+          vehicle: vehicle || agr.vehicle,
+          driverName: agr.driverName || driverProf?.fullName || 'Verified Driver',
+        };
+      });
+
+      setAgreements(enriched);
     };
+
     update();
     const unsubscribe = marketplaceStore.subscribe(update);
     return unsubscribe;
-  }, [partnerId]);
+  }, [partnerId, userId, partnerProfile?.id, currentProfile?.userId]);
 
   const handleSign = (agreementId: string) => {
     setSigningId(agreementId);

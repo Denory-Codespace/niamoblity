@@ -24,8 +24,8 @@ const config: Config = {
         }
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
-        heading: ["var(--font-outfit)", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["var(--font-jakarta)", "var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        heading: ["var(--font-jakarta)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
       },
       boxShadow: {
         'soft': '0 2px 10px rgba(16, 42, 67, 0.04), 0 1px 3px rgba(16, 42, 67, 0.06)',

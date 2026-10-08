@@ -21,12 +21,13 @@ interface AuthContextType {
     phone: string;
     email: string;
     role: UserRole;
+    password?: string;
     county?: string;
     subcounty?: string;
     experienceYears?: number;
     companyName?: string;
   }) => Promise<{ user: User; profile: Profile; supabaseSynced?: boolean }>;
-  loginUser: (identifier: string) => Promise<{ success: boolean; error?: string }>;
+  loginUser: (identifier: string, password?: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   loginAsRole: (role: UserRole) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phone: string;
     email: string;
     role: UserRole;
+    password?: string;
     county?: string;
     subcounty?: string;
     experienceYears?: number;
@@ -109,9 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res;
   };
 
-  const loginUser = async (identifier: string): Promise<{ success: boolean; error?: string }> => {
+  const loginUser = async (identifier: string, password?: string): Promise<{ success: boolean; user?: User; error?: string }> => {
     try {
-      const res = await marketplaceStore.loginUser(identifier);
+      const res = await marketplaceStore.loginUser(identifier, password);
       if (!res) {
         return {
           success: false,
@@ -135,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('nia_current_user_id', res.user.id);
       }
 
-      return { success: true };
+      return { success: true, user: res.user };
     } catch (err: any) {
       return { success: false, error: err.message || 'Login failed' };
     }

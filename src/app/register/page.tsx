@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { NAIROBI_SUBCOUNTIES } from '@/lib/utils';
-import { Car, Users, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Car, Users, CheckCircle2, AlertCircle, ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
 import { UserRole } from '@/types';
 
 export default function RegisterPage() {
@@ -17,6 +17,8 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [subcounty, setSubcounty] = useState('Westlands');
   const [experienceYears, setExperienceYears] = useState(3);
   const [companyName, setCompanyName] = useState('');
@@ -25,6 +27,11 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password || password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -33,6 +40,7 @@ export default function RegisterPage() {
         fullName,
         phone,
         email,
+        password,
         role,
         county: 'Nairobi',
         subcounty,
@@ -193,6 +201,29 @@ export default function RegisterPage() {
                   />
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Account Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password (minimum 6 characters)"
+                  className="w-full text-xs p-3 pr-10 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43] focus:border-[#102A43]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">Used to securely log in across devices.</span>
             </div>
 
             <Button

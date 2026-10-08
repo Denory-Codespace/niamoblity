@@ -52,9 +52,11 @@ export function ChatModal({
   const otherRole = isDriver ? 'Vehicle Partner' : 'Driver';
 
   // Recipient User ID calculation
-  const driverObj = marketplaceStore.drivers.find(d => d.id === driverId);
-  const partnerObj = marketplaceStore.partners.find(p => p.id === partnerId);
-  const recipientUserId = isDriver ? (partnerObj?.userId || '') : (driverObj?.userId || '');
+  const driverObj = marketplaceStore.drivers.find(d => d.id === driverId || d.userId === driverId);
+  const partnerObj = marketplaceStore.partners.find(p => p.id === partnerId || p.userId === partnerId);
+  const recipientUserId = isDriver
+    ? (partnerObj?.userId || partnerId)
+    : (driverObj?.userId || driverId);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -176,8 +178,11 @@ export function ChatModal({
             </div>
           ) : (
             messages.map((msg) => {
-              const isMe = msg.senderId === currentUser?.id ||
-                (msg.senderId === (isDriver ? driverId : partnerId) && !currentUser?.id);
+              const myUserId = currentUser?.id || currentProfile?.userId;
+              const isMe =
+                (myUserId && msg.senderId === myUserId) ||
+                (msg.senderRole && msg.senderRole === role) ||
+                (msg.senderId === (isDriver ? driverId : partnerId));
               return (
                 <div
                   key={msg.id}

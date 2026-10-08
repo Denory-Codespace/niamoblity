@@ -229,11 +229,18 @@ export default function PartnerDashboardPage() {
               <h3 className="text-xl font-bold text-[#102A43]">Fleet Asset Inventory</h3>
               <p className="text-xs text-slate-500">Track vehicle status, plates, and inspection status.</p>
             </div>
-            <Link href="/partner/listings/new">
-              <Button variant="soft-yellow" size="sm" className="font-bold">
-                Add Vehicle
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/partner/vehicles">
+                <Button variant="outline" size="sm">
+                  Manage &amp; Edit Fleet
+                </Button>
+              </Link>
+              <Link href="/partner/listings/new">
+                <Button variant="soft-yellow" size="sm" className="font-bold">
+                  Add Vehicle
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {vehicles.length > 0 ? (
@@ -251,7 +258,12 @@ export default function PartnerDashboardPage() {
                       <Badge variant="verified" size="sm">Verified</Badge>
                     </div>
                     <h4 className="font-bold text-sm text-[#102A43] mt-1">{v.make} {v.model} ({v.year})</h4>
-                    <span className="text-[11px] text-slate-500 block">{v.primarySubcounty || "Nairobi"} &bull; {v.transmission}</span>
+                    <span className="text-[11px] text-slate-500 block mb-2">{v.primarySubcounty || "Nairobi"} &bull; {v.transmission}</span>
+                    <Link href="/partner/vehicles">
+                      <span className="text-xs font-bold text-blue-600 hover:text-blue-800">
+                        Edit details &rarr;
+                      </span>
+                    </Link>
                   </div>
                 </div>
               ))}
