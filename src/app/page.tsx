@@ -163,7 +163,7 @@ export default function HomePage() {
                   </h1>
 
                   <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                    Connect directly with verified vehicle owners and professional drivers across Nairobi. No middlemen, transparent daily targets, structured digital agreements, and algorithmic matching.
+                    Connect directly with verified vehicle owners and professional drivers across Nairobi. No middlemen, transparent daily targets (hesabu), verified NTSA credentials, and direct owner-driver agreements.
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
@@ -358,9 +358,9 @@ export default function HomePage() {
               <div className="w-12 h-12 rounded-2xl bg-[#FFF1B8] text-amber-900 flex items-center justify-center font-black text-lg">
                 2
               </div>
-              <h3 className="text-lg font-bold text-[#102A43]">Algorithmic Match</h3>
+              <h3 className="text-lg font-bold text-[#102A43]">Route &amp; Target Match</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Our 7-factor engine pairs drivers and vehicles based on Nairobi zones, platform preference, and targets.
+                Matches drivers and vehicle partners based on operating routes, daily target expectations (hesabu), and platform experience.
               </p>
             </div>
 

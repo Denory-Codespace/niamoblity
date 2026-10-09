@@ -31,7 +31,7 @@ import { VerificationModal } from '@/components/verification/VerificationModal';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { role, currentProfile, isAuthenticated, logout } = useAuth();
+  const { role, currentProfile, currentUser, isAuthenticated, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -59,11 +59,13 @@ export default function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all">
-        {/* Top Minimal Brand Bar */}
+        {/* Top Minimal Trust Bar */}
         <div className="bg-[#102A43] text-white text-xs px-4 py-1.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="font-medium text-slate-200">Built by <strong className="text-white font-bold tracking-wide">Denory Codespace</strong></span>
+            <span className="font-semibold text-slate-200">
+              Kenya&apos;s Ride-Hailing Driver & Partner Marketplace
+            </span>
             <span className="hidden sm:inline text-slate-400">| Nairobi, Kenya</span>
           </div>
 
@@ -305,31 +307,41 @@ export default function Navbar() {
                       </span>
                     </div>
                   </Link>
+                  <Link
+                    href="/account"
+                    className="text-[10px] font-semibold text-slate-500 hover:text-[#102A43] transition-colors ml-1"
+                    title="Account Settings"
+                  >
+                    Settings
+                  </Link>
                 </div>
               )}
             </div>
 
             {/* Mobile Action Area: Notifications, Profile, Menu */}
             <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
-              {mounted && isAuthenticated ? (
-                <>
-                  <NotificationBell />
-                  {currentProfile && (
+              {mounted ? (
+                isAuthenticated ? (
+                  <>
+                    <NotificationBell />
                     <Link
                       href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
                       className="w-8 h-8 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100"
+                      title={currentProfile?.fullName || 'My Account'}
                     >
-                      {currentProfile.fullName.slice(0, 2).toUpperCase()}
+                      {(currentProfile?.fullName || currentUser?.email || 'ME').slice(0, 2).toUpperCase()}
                     </Link>
-                  )}
-                </>
+                  </>
+                ) : (
+                  <button
+                    onClick={openLogin}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#102A43] bg-slate-100 hover:bg-slate-200 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                )
               ) : (
-                <button
-                  onClick={openLogin}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#102A43] bg-slate-100 hover:bg-slate-200 transition-colors"
-                >
-                  Sign In
-                </button>
+                <div className="w-16 h-7 bg-slate-100/50 rounded-xl animate-pulse" />
               )}
 
               <button
@@ -414,6 +426,13 @@ export default function Navbar() {
                     <Link href="/driver/agreements" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-50 rounded-lg">Agreements</Link>
                   </>
                 )}
+                <Link
+                  href="/account"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-lg border-t border-slate-100 pt-3 mt-1"
+                >
+                  Account Settings
+                </Link>
                 <button
                   onClick={() => { logout(); setMobileMenuOpen(false); }}
                   className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg"

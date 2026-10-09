@@ -17,15 +17,23 @@ import {
   Phone,
   MessageSquare,
   ArrowRight,
+  Smartphone,
+  Lock,
 } from 'lucide-react';
 import { ChatModal } from '@/components/chat/ChatModal';
+import { MpesaModal } from '@/components/payments/MpesaModal';
+import { DriverProfileModal } from '@/components/profile/DriverProfileModal';
 
 export default function PartnerApplicationsPage() {
-  const { currentProfile, partnerProfile, isAuthenticated, role } = useAuth();
+  const { currentProfile, partnerProfile, currentUser, isAuthenticated, role } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [activeChatApp, setActiveChatApp] = useState<Application | null>(null);
+  const [viewingDriverApp, setViewingDriverApp] = useState<Application | null>(null);
+  const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
+  const [unlockTargetAppId, setUnlockTargetAppId] = useState<string | null>(null);
+  const [unlockedApps, setUnlockedApps] = useState<Record<string, boolean>>({});
 
   const partnerId = partnerProfile?.id;
   const userId = currentProfile?.userId;
@@ -139,8 +147,11 @@ export default function PartnerApplicationsPage() {
             >
               {/* Applicant Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-sm ring-4 ring-blue-50 overflow-hidden shrink-0">
+                <div
+                  className="flex items-center gap-4 cursor-pointer group"
+                  onClick={() => setViewingDriverApp(app)}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-sm ring-4 ring-blue-50 group-hover:ring-blue-200 transition-all overflow-hidden shrink-0">
                     {app.driver?.avatarUrl ? (
                       <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -149,13 +160,18 @@ export default function PartnerApplicationsPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-black text-[#102A43]">{app.driver?.fullName}</h3>
+                      <h3 className="text-lg font-black text-[#102A43] group-hover:text-blue-600 transition-colors">
+                        {app.driver?.fullName}
+                      </h3>
                       <Badge variant="verified" size="sm" icon="shield">Verified Driver</Badge>
                       <Badge variant="match" size="sm" icon="sparkles">{app.matchScorePct}% Match</Badge>
                     </div>
-                    <span className="text-xs text-slate-500 block mt-0.5">
-                      Applied for <strong>{app.listing?.title}</strong> &bull; {formatDateEAT(app.createdAt)}
-                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-500">
+                        Applied for <strong>{app.listing?.title}</strong> &bull; {formatDateEAT(app.createdAt)}
+                      </span>
+                      <span className="text-[10px] font-bold text-blue-600 underline">View Full Dossier &rarr;</span>
+                    </div>
                   </div>
                 </div>
 
@@ -177,12 +193,36 @@ export default function PartnerApplicationsPage() {
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
-                  <span className="font-bold text-slate-700 block">Vetting Summary:</span>
-                  <ul className="space-y-1 text-slate-600">
+                  <span className="font-bold text-slate-700 block">Vetting &amp; Contact:</span>
+                  <ul className="space-y-1.5 text-slate-600">
                     <li>&bull; Experience: <strong>{app.driver?.experienceYears} Years</strong></li>
                     <li>&bull; Base: <strong>{app.driver?.locationSubcounty || 'Nairobi'}</strong></li>
                     <li>&bull; Rating: <strong>&starf; {app.driver?.ratingAvg || 4.9} / 5.0</strong></li>
                     <li>&bull; Platforms: <strong>{app.driver?.preferredPlatforms?.join(', ') || 'Uber, Bolt'}</strong></li>
+                    <li className="pt-1 border-t border-slate-200">
+                      {unlockedApps[app.id] ? (
+                        <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                          <Phone className="w-3.5 h-3.5" />
+                          <a href={`tel:${app.driver?.phone || '+254712345678'}`} className="hover:underline">
+                            {app.driver?.phone || '+254 712 345 678'}
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-mono text-slate-400 text-[11px]">+254 7•• ••• ••</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUnlockTargetAppId(app.id);
+                              setMpesaModalOpen(true);
+                            }}
+                            className="px-2 py-1 bg-[#00A859] hover:bg-[#008f4c] text-white text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                          >
+                            <Smartphone className="w-3 h-3" /> Unlock (KES 300)
+                          </button>
+                        </div>
+                      )}
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -223,16 +263,6 @@ export default function PartnerApplicationsPage() {
                   >
                     Chat with Driver
                   </Button>
-
-                  {app.status === 'SUBMITTED' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleStatusChange(app.id, 'SHORTLISTED', 'Partner reviewed profile and shortlisted.')}
-                    >
-                      Shortlist Candidate
-                    </Button>
-                  )}
 
                   {app.status !== 'ACCEPTED' && app.status !== 'REJECTED' && (
                     <Button
@@ -281,6 +311,35 @@ export default function PartnerApplicationsPage() {
             listingId={activeChatApp.listingId}
             listingTitle={activeChatApp.listing?.title}
             otherUserPhone={activeChatApp.driver?.phone}
+          />
+        )}
+
+        <MpesaModal
+          isOpen={mpesaModalOpen}
+          onClose={() => setMpesaModalOpen(false)}
+          serviceType="PARTNER_APPLICANT_UNLOCK"
+          userId={currentProfile?.userId || ''}
+          userRole="PARTNER"
+          referenceId={unlockTargetAppId || undefined}
+          defaultPhone={currentUser?.phone || ''}
+          onSuccess={() => {
+            if (unlockTargetAppId) {
+              setUnlockedApps((prev) => ({ ...prev, [unlockTargetAppId]: true }));
+            }
+          }}
+        />
+
+        {viewingDriverApp && (
+          <DriverProfileModal
+            isOpen={!!viewingDriverApp}
+            onClose={() => setViewingDriverApp(null)}
+            driverId={viewingDriverApp.driverId}
+            driverName={viewingDriverApp.driver?.fullName}
+            avatarUrl={viewingDriverApp.driver?.avatarUrl}
+            isUnlocked={!!unlockedApps[viewingDriverApp.id]}
+            onUnlockSuccess={() => {
+              setUnlockedApps((prev) => ({ ...prev, [viewingDriverApp.id]: true }));
+            }}
           />
         )}
       </div>

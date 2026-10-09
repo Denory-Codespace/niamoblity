@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
@@ -16,16 +16,22 @@ import {
   PlusCircle,
   Compass,
   LogIn,
+  User,
 } from 'lucide-react';
 
 export default function MobileNav() {
   const pathname = usePathname();
-  const { role, isAuthenticated } = useAuth();
+  const { role, isAuthenticated, currentProfile } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 md:hidden px-1.5 py-1 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
       {/* 1. DRIVER BOTTOM NAVIGATION */}
-      {role === 'DRIVER' && (
+      {mounted && isAuthenticated && role === 'DRIVER' && (
         <>
           <Link
             href="/vehicles"
@@ -80,7 +86,7 @@ export default function MobileNav() {
       )}
 
       {/* 2. PARTNER BOTTOM NAVIGATION */}
-      {role === 'PARTNER' && (
+      {mounted && isAuthenticated && role === 'PARTNER' && (
         <>
           <Link
             href="/partner/dashboard"
@@ -134,8 +140,69 @@ export default function MobileNav() {
         </>
       )}
 
-      {/* 3. GUEST / ADMIN / ALL OTHER ROLES */}
-      {role !== 'DRIVER' && role !== 'PARTNER' && (
+      {/* 3. ADMIN NAVIGATION */}
+      {mounted && isAuthenticated && role === 'ADMIN' && (
+        <>
+          <Link
+            href="/vehicles"
+            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
+              pathname.startsWith('/vehicles') ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Search className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Vehicles</span>
+          </Link>
+          <Link
+            href="/admin"
+            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
+              pathname.startsWith('/admin') ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <ShieldCheck className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Admin Panel</span>
+          </Link>
+          <Link
+            href="/how-it-works"
+            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
+              pathname === '/how-it-works' ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Compass className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Guide</span>
+          </Link>
+        </>
+      )}
+
+      {/* 4. OTHER AUTHENTICATED USERS */}
+      {mounted && isAuthenticated && role !== 'DRIVER' && role !== 'PARTNER' && role !== 'ADMIN' && (
+        <>
+          <Link
+            href="/vehicles"
+            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
+              pathname.startsWith('/vehicles') ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Search className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Vehicles</span>
+          </Link>
+          <Link
+            href="/how-it-works"
+            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
+              pathname === '/how-it-works' ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Compass className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px]">Guide</span>
+          </Link>
+          <div className="flex flex-col items-center py-1 px-3 rounded-xl text-slate-700">
+            <User className="w-5 h-5 mb-0.5 text-blue-600" />
+            <span className="text-[10px] font-bold truncate max-w-[60px]">{currentProfile?.fullName?.split(' ')[0] || 'Active'}</span>
+          </div>
+        </>
+      )}
+
+      {/* 5. GUEST NAVIGATION (ONLY when mounted and confirmed NOT authenticated) */}
+      {(!mounted || !isAuthenticated) && (
         <>
           <Link
             href="/vehicles"
@@ -157,17 +224,7 @@ export default function MobileNav() {
             <span className="text-[10px]">How It Works</span>
           </Link>
 
-          {role === 'ADMIN' ? (
-            <Link
-              href="/admin"
-              className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${
-                pathname.startsWith('/admin') ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <ShieldCheck className="w-5 h-5 mb-0.5" />
-              <span className="text-[10px]">Admin</span>
-            </Link>
-          ) : (
+          {mounted && (
             <Link
               href="/login"
               className={`flex flex-col items-center py-1 px-3 rounded-xl transition-colors ${

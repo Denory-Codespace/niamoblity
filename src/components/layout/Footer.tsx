@@ -45,7 +45,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/driver/matches" className="hover:text-white transition-colors">
-                  Algorithmic Matching
+                  Driver &amp; Vehicle Matching
                 </Link>
               </li>
               <li>

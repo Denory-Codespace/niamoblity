@@ -17,10 +17,12 @@ import {
   Calendar,
   Layers,
   CheckCircle2,
+  Users,
 } from 'lucide-react';
 import { marketplaceStore } from '@/lib/db/store';
 import { useAuth } from '@/lib/auth/auth-context';
 import { ApplyModal } from './ApplyModal';
+import { PartnerProfileModal } from '@/components/profile/PartnerProfileModal';
 
 interface VehicleCardProps {
   listing: VehicleListing;
@@ -32,11 +34,17 @@ interface VehicleCardProps {
 export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveToggle }: VehicleCardProps) {
   const { role, partnerProfile } = useAuth();
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [partnerModalOpen, setPartnerModalOpen] = useState(false);
   const vehicle = listing.vehicle;
   const photoUrl = vehicle?.photos?.[0] || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80';
 
   const isMyListing = role === 'PARTNER' && partnerProfile && listing.partnerId === partnerProfile.id;
   const isPartner = role === 'PARTNER';
+
+  // Upwork-style Application & Proposal metrics
+  const appsForListing = marketplaceStore.applications.filter((a) => a.listingId === listing.id);
+  const totalProposals = Math.max(appsForListing.length, listing.applicationsCount || 0);
+  const interviewingCount = appsForListing.filter((a) => a.status === 'INTERVIEW' || a.status === 'SHORTLISTED').length;
 
   return (
     <>
@@ -125,6 +133,38 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
                 ))}
               </div>
             </div>
+
+            {/* Partner Attribution */}
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
+              <span className="truncate">
+                Partner: <strong className="text-slate-700">{listing.partner?.fullName || "Vehicle Partner"}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPartnerModalOpen(true)}
+                className="text-[10px] font-bold text-blue-600 hover:underline shrink-0"
+              >
+                Owner Profile &rarr;
+              </button>
+            </div>
+
+            {/* Upwork-style Proposals & Interviewing Activity */}
+            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 text-[11px] space-y-1 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-blue-600" /> Applications made: 
+                </span>
+                <span className="font-bold text-slate-800">
+                  {totalProposals === 0 ? 'Be the first to apply' : `${totalProposals} drivers`}
+                </span>
+              </div>
+              {totalProposals > 0 && (
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">
+                  <span>In Interview: <strong className="text-amber-700 font-bold">{interviewingCount}</strong></span>
+                  <span className="text-emerald-700 font-semibold">&bull; Active Now</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Pricing & Commercial Structure */}
@@ -165,6 +205,13 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
         isOpen={applyModalOpen}
         onClose={() => setApplyModalOpen(false)}
         listing={listing}
+      />
+
+      <PartnerProfileModal
+        isOpen={partnerModalOpen}
+        onClose={() => setPartnerModalOpen(false)}
+        partnerId={listing.partnerId}
+        partnerName={listing.partner?.fullName}
       />
     </>
   );

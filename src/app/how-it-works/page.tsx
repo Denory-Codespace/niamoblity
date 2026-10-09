@@ -176,9 +176,9 @@ export default function HowItWorksPage() {
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-blue-400">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h4 className="text-sm font-bold text-white">Algorithmic Matching</h4>
+              <h4 className="text-sm font-bold text-white">Route &amp; Target Matching</h4>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Objective 7-factor scoring ensures realistic commercial expectations.
+                Objective scoring based on route familiarity, daily remittance targets, and vehicle type compatibility.
               </p>
             </div>
 

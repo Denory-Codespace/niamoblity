@@ -15,18 +15,16 @@ export default function NewListingPage() {
   const { partnerProfile, currentProfile, currentUser, isAuthenticated, role, loginAsRole } = useAuth();
 
   const [make, setMake] = useState('Toyota');
-  const [model, setModel] = useState('Fielder');
-  const [year, setYear] = useState(2018);
-  const [regNumber, setRegNumber] = useState('KDG 789P');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState(new Date().getFullYear() - 2);
+  const [regNumber, setRegNumber] = useState('');
   const [transmission, setTransmission] = useState<'AUTOMATIC' | 'MANUAL'>('AUTOMATIC');
   const [fuelType, setFuelType] = useState<'PETROL' | 'DIESEL' | 'HYBRID' | 'ELECTRIC'>('PETROL');
   const [subcounty, setSubcounty] = useState('Westlands');
-  const [targetAmountKes, setTargetAmountKes] = useState(2800);
-  const [depositAmountKes, setDepositAmountKes] = useState(15000);
+  const [targetAmountKes, setTargetAmountKes] = useState(2500);
+  const [depositAmountKes, setDepositAmountKes] = useState(10000);
   const [arrangementType, setArrangementType] = useState<'DAILY_TARGET' | 'WEEKLY_TARGET'>('DAILY_TARGET');
-  const [description, setDescription] = useState(
-    'Well maintained vehicle with comprehensive insurance and tracker. Looking for a disciplined driver for Uber/Bolt in Nairobi.'
-  );
+  const [description, setDescription] = useState('');
   const [minExp, setMinExp] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -195,6 +193,7 @@ export default function NewListingPage() {
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Fielder, Axio, Demio"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
@@ -332,12 +331,14 @@ export default function NewListingPage() {
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Listing Description &amp; Terms</label>
               <textarea
-                rows={3}
+                rows={4}
                 required
+                placeholder="Describe your vehicle's condition, any extras (tracker, insurance, etc.), your expectations of the driver, and any other relevant terms. Be honest and clear."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full text-xs p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43]"
               />
+              <p className="text-[10px] text-slate-400 mt-1">Drivers can read this before applying - clear listings attract better candidates.</p>
             </div>
           </div>
 

@@ -319,6 +319,59 @@ class MarketplaceStore {
     // Broadcast across browser tabs and Supabase websocket
     this.broadcastEvent('new_notification', notif);
 
+    // Background Push Notification (fires when tab is minimized or backgrounded)
+    if (typeof window !== 'undefined') {
+      import('@/lib/notifications/push-service').then(({ triggerSystemNotification }) => {
+        triggerSystemNotification({
+          title: notif.title,
+          body: notif.message,
+          url: notif.linkUrl || '/',
+        }).catch(() => {});
+      });
+
+      // Email Dispatch for Unread Messages & Applications
+      const targetUser = this.users.find(u => u.id === item.userId);
+      const targetProfile = this.profiles.find(p => p.userId === item.userId);
+      const targetEmail = targetUser?.email;
+
+      if (targetEmail) {
+        import('@/lib/notifications/email-notifier').then(({ sendUnreadReminderEmail }) => {
+          if (item.type === 'APPLICATION') {
+            // Immediate email dispatch for incoming vehicle applications
+            sendUnreadReminderEmail({
+              recipientEmail: targetEmail,
+              recipientName: targetProfile?.fullName || 'Vehicle Partner',
+              recipientRole: 'PARTNER',
+              notificationId: notif.id,
+              senderName: 'Applicant Driver',
+              contextTitle: notif.title,
+              messageSnippet: notif.message,
+              type: 'NEW_APPLICATION',
+              ctaUrl: notif.linkUrl || '/partner/applications',
+            });
+          } else if (item.type === 'MESSAGE') {
+            // Unread message timer: check if unread after grace period (e.g. 2 minutes)
+            setTimeout(() => {
+              const fresh = this.notifications.find(n => n.id === notif.id);
+              if (fresh && !fresh.isRead) {
+                sendUnreadReminderEmail({
+                  recipientEmail: targetEmail,
+                  recipientName: targetProfile?.fullName || 'User',
+                  recipientRole: targetUser?.role === 'PARTNER' ? 'PARTNER' : 'DRIVER',
+                  notificationId: notif.id,
+                  senderName: notif.title.replace('💬 New Message from ', ''),
+                  contextTitle: 'Chat Message',
+                  messageSnippet: notif.message,
+                  type: 'UNREAD_MESSAGE',
+                  ctaUrl: notif.linkUrl || '/driver/applications',
+                });
+              }
+            }, 120000); // 2 minute unread timer
+          }
+        });
+      }
+    }
+
     this.notify();
     return notif;
   }
@@ -556,6 +609,74 @@ class MarketplaceStore {
     this.notify();
     return { user: res.user, profile: res.profile, roleRecord: res.roleRecord, supabaseSynced: res.supabaseSynced };
   }
+
+  // --- Update User Profile ---
+  public async updateProfile(userId: string, updates: {
+    fullName?: string;
+    bio?: string;
+    locationCounty?: string;
+    locationSubcounty?: string;
+    phone?: string;
+  }) {
+    await dbService.updateProfile(userId, updates);
+
+    // Update local store
+    const profile = this.profiles.find(p => p.userId === userId);
+    if (profile) {
+      if (updates.fullName) profile.fullName = updates.fullName;
+      if (updates.bio !== undefined) profile.bio = updates.bio;
+      if (updates.locationCounty) profile.locationCounty = updates.locationCounty;
+      if (updates.locationSubcounty !== undefined) profile.locationSubcounty = updates.locationSubcounty;
+      profile.updatedAt = new Date().toISOString();
+    }
+
+    const user = this.users.find(u => u.id === userId);
+    if (user && updates.phone) {
+      user.phone = updates.phone;
+      user.updatedAt = new Date().toISOString();
+    }
+
+    this.notify();
+    return profile;
+  }
+
+  // --- Delete User Account ---
+  public async deleteUserAccount(userId: string, role: UserRole) {
+    // Remove all local data for this user
+    await dbService.deleteUserAccount(userId, role);
+
+    this.users = this.users.filter(u => u.id !== userId);
+    this.profiles = this.profiles.filter(p => p.userId !== userId);
+    this.notifications = this.notifications.filter(n => n.userId !== userId);
+
+    if (role === 'DRIVER') {
+      const driver = this.drivers.find(d => d.userId === userId);
+      if (driver) {
+        this.applications = this.applications.filter(a => a.driverId !== driver.id);
+        this.agreements = this.agreements.filter(a => a.driverId !== driver.id);
+        this.drivers = this.drivers.filter(d => d.userId !== userId);
+      }
+    } else if (role === 'PARTNER') {
+      const partner = this.partners.find(p => p.userId === userId);
+      if (partner) {
+        this.applications = this.applications.filter(a => a.partnerId !== partner.id);
+        this.agreements = this.agreements.filter(a => a.partnerId !== partner.id);
+        this.vehicles = this.vehicles.filter(v => v.partnerId !== partner.id);
+        this.listings = this.listings.filter(l => l.partnerId !== partner.id);
+        this.partners = this.partners.filter(p => p.userId !== userId);
+      }
+    }
+
+    // Log out
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('nia_current_user_id');
+      localStorage.removeItem('nia_push_granted');
+    }
+
+    this.notify();
+  }
+
+
 
   // --- Real Login Flow ---
   public async loginUser(identifier: string, password?: string) {
@@ -962,6 +1083,31 @@ class MarketplaceStore {
       localStorage.clear();
     }
     this.notify();
+  }
+
+  // --- Monetization & M-Pesa Unlocks ---
+  public unlockedContacts: Record<string, boolean> = {};
+
+  public unlockApplicationContact(applicationId: string) {
+    this.unlockedContacts[applicationId] = true;
+    this.notify();
+  }
+
+  public boostListing(listingId: string) {
+    const listing = this.listings.find(l => l.id === listingId);
+    if (listing) {
+      this.listings = [listing, ...this.listings.filter(l => l.id !== listingId)];
+      this.notify();
+    }
+  }
+
+  public verifyDriverBadge(driverId: string) {
+    const driver = this.drivers.find(d => d.id === driverId || d.userId === driverId);
+    if (driver) {
+      driver.identityVerified = true;
+      driver.licenseVerified = true;
+      this.notify();
+    }
   }
 
   public getPlatformStats() {

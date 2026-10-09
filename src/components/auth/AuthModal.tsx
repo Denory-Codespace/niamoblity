@@ -98,6 +98,12 @@ export function AuthModal({
         companyName: role === 'PARTNER' ? companyName : undefined,
       });
 
+      // Trigger celebratory welcome fanfare chime
+      try {
+        const { playWelcomeSound } = await import('@/lib/utils/sound');
+        playWelcomeSound();
+      } catch {}
+
       setIsSubmitting(false);
       if (res.supabaseSynced === false) {
         setSuccessNotice('Account created! (Saved locally — run prisma/rls_fix.sql in Supabase to sync live)');

@@ -24,6 +24,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [pushGranted, setPushGranted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const userId = currentProfile?.userId || 'guest';
@@ -33,14 +34,31 @@ export function NotificationBell() {
 
   useEffect(() => {
     setMounted(true);
+    // Check if push was already granted — persisted across sessions
+    const stored = localStorage.getItem('nia_push_granted');
+    if (stored === 'true' || (typeof Notification !== 'undefined' && Notification.permission === 'granted')) {
+      setPushGranted(true);
+    }
+
     const update = () => {
       if (userId) {
         const fresh = marketplaceStore.getNotificationsByUser(userId);
         setNotifications(fresh);
         const newUnread = fresh.filter(n => !n.isRead).length;
-        // Play sound only when a new notification arrives in real-time
+        // Play distinct sound tone based on notification type in real-time
         if (!isFirstRunRef.current && newUnread > prevUnreadCountRef.current) {
-          playNotificationSound();
+          const latest = fresh.find(n => !n.isRead);
+          import('@/lib/utils/sound').then((s) => {
+            if (latest?.type === 'MESSAGE') {
+              s.playMessageSound();
+            } else if (latest?.type === 'APPLICATION') {
+              s.playApplicationSound();
+            } else if (latest?.type === 'SYSTEM') {
+              s.playWelcomeSound();
+            } else {
+              s.playNotificationSound();
+            }
+          });
         }
         isFirstRunRef.current = false;
         prevUnreadCountRef.current = newUnread;
@@ -126,6 +144,40 @@ export function NotificationBell() {
             )}
           </div>
 
+          {/* Background Push & Email Alert Status Header */}
+          <div className="bg-blue-50/70 px-3.5 py-2.5 border-b border-blue-100/80 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-slate-700">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="text-[11px] font-medium leading-tight">
+                Phone popups &amp; email alerts for unread chats
+              </span>
+            </div>
+            {pushGranted ? (
+              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg flex items-center gap-1 shrink-0">
+                <CheckCircle2 className="w-3 h-3" /> Push Active
+              </span>
+            ) : (
+              <button
+                onClick={async () => {
+                  const { requestPushPermission, triggerSystemNotification } = await import('@/lib/notifications/push-service');
+                  const granted = await requestPushPermission();
+                  if (granted) {
+                    setPushGranted(true);
+                    localStorage.setItem('niamobility_push_granted', 'true');
+                    triggerSystemNotification({
+                      title: '🔔 Nia Mobility Notifications Active',
+                      body: 'You will now receive instant popups even when the app is in the background or closed.',
+                    });
+                  }
+                }}
+                className="px-2.5 py-1 bg-[#102A43] text-white text-[11px] font-bold rounded-lg hover:bg-slate-800 shrink-0 shadow-2xs"
+              >
+                Enable Push
+              </button>
+            )}
+          </div>
+
+
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-slate-400 text-xs">
@@ -177,8 +229,9 @@ export function NotificationBell() {
             )}
           </div>
 
-          <div className="p-2.5 bg-slate-50 border-t border-slate-100 text-center text-[11px] text-slate-500 font-medium">
-            Real-time updates for nia mobility
+          <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium px-3.5">
+            <span>Instant Web Push &bull; Email Fallback</span>
+            <span className="text-emerald-700 font-bold">&bull; Live Sync</span>
           </div>
         </div>
       )}

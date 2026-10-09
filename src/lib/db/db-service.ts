@@ -320,6 +320,67 @@ export class DatabaseService {
     }));
   }
 
+  async updateProfile(userId: string, updates: {
+    fullName?: string;
+    bio?: string;
+    locationCounty?: string;
+    locationSubcounty?: string;
+    phone?: string;
+  }): Promise<boolean> {
+    const profileUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.fullName) profileUpdates.full_name = updates.fullName;
+    if (updates.bio !== undefined) profileUpdates.bio = updates.bio;
+    if (updates.locationCounty) profileUpdates.location_county = updates.locationCounty;
+    if (updates.locationSubcounty !== undefined) profileUpdates.location_subcounty = updates.locationSubcounty;
+
+    const { error: profErr } = await supabase.from('profiles').update(profileUpdates).eq('user_id', userId);
+    if (profErr) console.warn('Supabase profile update notice:', profErr.message);
+
+    // Update phone on user row if provided
+    if (updates.phone) {
+      await supabase.from('users').update({ phone: updates.phone, updated_at: new Date().toISOString() }).eq('id', userId);
+    }
+
+    return !profErr;
+  }
+
+  async deleteUserAccount(userId: string, role: UserRole): Promise<boolean> {
+    try {
+      // 1. Delete applications referencing this user
+      if (role === 'DRIVER') {
+        const { data: driver } = await supabase.from('drivers').select('id').eq('user_id', userId).limit(1);
+        if (driver && driver[0]) {
+          await supabase.from('applications').delete().eq('driver_id', driver[0].id);
+          await supabase.from('agreements').delete().eq('driver_id', driver[0].id);
+          await supabase.from('drivers').delete().eq('id', driver[0].id);
+        }
+      } else if (role === 'PARTNER') {
+        const { data: partner } = await supabase.from('partners').select('id').eq('user_id', userId).limit(1);
+        if (partner && partner[0]) {
+          await supabase.from('applications').delete().eq('partner_id', partner[0].id);
+          await supabase.from('agreements').delete().eq('partner_id', partner[0].id);
+          await supabase.from('vehicle_listings').delete().eq('partner_id', partner[0].id);
+          await supabase.from('vehicles').delete().eq('partner_id', partner[0].id);
+          await supabase.from('partners').delete().eq('id', partner[0].id);
+        }
+      }
+
+      // 2. Delete profile, notifications, conversations, messages
+      await supabase.from('profiles').delete().eq('user_id', userId);
+      await supabase.from('notifications').delete().eq('user_id', userId);
+
+      // 3. Delete the user row
+      const { error } = await supabase.from('users').delete().eq('id', userId);
+      if (error) console.warn('Supabase user delete notice:', error.message);
+      return !error;
+    } catch (e) {
+      console.warn('Account deletion error:', e);
+      return false;
+    }
+  }
+
+
+
   async getDrivers(): Promise<DriverProfile[]> {
     const { data, error } = await supabase.from('drivers').select('*');
     if (error || !data) return [];
