@@ -295,8 +295,12 @@ export default function Navbar() {
                     href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
                     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                   >
-                    <div className="w-9 h-9 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
-                      {currentProfile.fullName.slice(0, 2).toUpperCase()}
+                    <div className="w-9 h-9 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 overflow-hidden">
+                      {currentProfile.avatarUrl ? (
+                        <img src={currentProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        currentProfile.fullName.split(' ').filter(Boolean).map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'ME'
+                      )}
                     </div>
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-bold text-[#102A43] truncate max-w-[110px]">
@@ -326,10 +330,14 @@ export default function Navbar() {
                     <NotificationBell />
                     <Link
                       href={role === 'PARTNER' ? '/partner/dashboard' : '/driver/matches'}
-                      className="w-8 h-8 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100"
+                      className="w-8 h-8 rounded-full bg-[#102A43] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 overflow-hidden"
                       title={currentProfile?.fullName || 'My Account'}
                     >
-                      {(currentProfile?.fullName || currentUser?.email || 'ME').slice(0, 2).toUpperCase()}
+                      {currentProfile?.avatarUrl ? (
+                        <img src={currentProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        ((currentProfile?.fullName || currentUser?.email || 'ME').split(' ').filter(Boolean).map((n: string) => n[0]).slice(0, 2).join('') || 'ME').toUpperCase()
+                      )}
                     </Link>
                   </>
                 ) : (

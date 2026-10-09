@@ -16,12 +16,14 @@ import {
   PenTool,
   Printer,
   LogIn,
+  Eye,
 } from 'lucide-react';
+import { AgreementModal } from '@/components/agreement/AgreementModal';
 
 export default function PartnerAgreementsPage() {
   const { partnerProfile, currentProfile, isAuthenticated, role } = useAuth();
   const [agreements, setAgreements] = useState<Agreement[]>([]);
-  const [signingId, setSigningId] = useState<string | null>(null);
+  const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null);
 
   const partnerId = partnerProfile?.id;
   const userId = currentProfile?.userId;
@@ -59,12 +61,8 @@ export default function PartnerAgreementsPage() {
     return unsubscribe;
   }, [partnerId, userId, partnerProfile?.id, currentProfile?.userId]);
 
-  const handleSign = (agreementId: string) => {
-    setSigningId(agreementId);
-    setTimeout(() => {
-      marketplaceStore.signAgreement(agreementId, 'PARTNER');
-      setSigningId(null);
-    }, 800);
+  const handleOpenAgreement = (agr: Agreement) => {
+    setSelectedAgreement(agr);
   };
 
   if (!isAuthenticated || role !== 'PARTNER') {
@@ -227,31 +225,41 @@ export default function PartnerAgreementsPage() {
                     </div>
                   </div>
 
-                  {!agr.partnerSignedAt ? (
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
-                      variant="soft-yellow"
-                      size="md"
-                      isLoading={signingId === agr.id}
-                      onClick={() => handleSign(agr.id)}
-                      leftIcon={<PenTool className="w-4 h-4 text-amber-800" />}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenAgreement(agr)}
+                      leftIcon={<Eye className="w-4 h-4" />}
                     >
-                      Sign &amp; Countersign Agreement
+                      Review Agreement &amp; Terms
                     </Button>
-                  ) : (
-                    <div className="flex items-center gap-2">
+
+                    {!agr.partnerSignedAt ? (
                       <Button
-                        variant="outline"
+                        variant="soft-yellow"
                         size="sm"
-                        onClick={() => window.print()}
-                        leftIcon={<Printer className="w-4 h-4" />}
+                        onClick={() => handleOpenAgreement(agr)}
+                        leftIcon={<PenTool className="w-4 h-4 text-amber-800" />}
                       >
-                        Print PDF
+                        Sign &amp; Countersign
                       </Button>
-                      <Badge variant="verified" size="md">
-                        Agreement Active
-                      </Badge>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenAgreement(agr)}
+                          leftIcon={<Printer className="w-4 h-4" />}
+                        >
+                          View / Print PDF
+                        </Button>
+                        <Badge variant="verified" size="md">
+                          Agreement Active &amp; Sealed
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -273,6 +281,16 @@ export default function PartnerAgreementsPage() {
               </Button>
             </Link>
           </div>
+        )}
+
+        {/* Legal Agreement Review & E-Signing Modal */}
+        {selectedAgreement && (
+          <AgreementModal
+            isOpen={!!selectedAgreement}
+            onClose={() => setSelectedAgreement(null)}
+            agreement={selectedAgreement}
+            signerRole="PARTNER"
+          />
         )}
       </div>
     </div>

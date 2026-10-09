@@ -190,7 +190,13 @@ export default function PartnerDashboardPage() {
                       {app.driver?.avatarUrl ? (
                         <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        'DR'
+                        (app.driver?.fullName || 'Driver')
+                          .split(' ')
+                          .filter(Boolean)
+                          .map((n: string) => n[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase() || 'DR'
                       )}
                     </div>
                     <div>

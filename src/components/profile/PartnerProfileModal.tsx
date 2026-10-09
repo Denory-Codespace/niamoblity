@@ -14,8 +14,9 @@ import {
   MapPin,
   Building2,
   Phone,
-  Lock,
   Smartphone,
+  Camera,
+  Lock,
 } from 'lucide-react';
 import { MpesaModal } from '@/components/payments/MpesaModal';
 
@@ -56,6 +57,26 @@ export function PartnerProfileModal({
     if (onUnlockSuccess) onUnlockSuccess();
   };
 
+  const currentAvatar = profile?.avatarUrl || user?.avatarUrl;
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'VP';
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !partner?.userId) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = reader.result as string;
+      marketplaceStore.updateAvatar(partner.userId, url);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <>
       <Modal
@@ -67,8 +88,23 @@ export function PartnerProfileModal({
         <div className="space-y-5 pt-1">
           {/* Header */}
           <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
-            <div className="w-14 h-14 rounded-2xl bg-amber-800 text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
-              <Building2 className="w-7 h-7 text-[#FFF1B8]" />
+            <div className="relative group">
+              <div className="w-14 h-14 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0 overflow-hidden">
+                {currentAvatar ? (
+                  <img src={currentAvatar} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
+              <label className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#102A43] hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer shadow-md transition-colors">
+                <Camera className="w-3.5 h-3.5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFile}
+                />
+              </label>
             </div>
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">

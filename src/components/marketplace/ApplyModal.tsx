@@ -22,6 +22,7 @@ import {
   Phone,
   Lock,
   CheckCircle2,
+  Upload,
 } from 'lucide-react';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { MpesaModal } from '@/components/payments/MpesaModal';
@@ -36,9 +37,7 @@ interface ApplyModalProps {
 
 export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalProps) {
   const { driverProfile, currentProfile, currentUser, isAuthenticated, role } = useAuth();
-  const [coverNote, setCoverNote] = useState(
-    "Hello! I am an experienced driver registered on mobility platforms. I maintain consistent daily remittance and keep vehicles in pristine condition. I would love to drive this vehicle."
-  );
+  const [coverNote, setCoverNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -69,30 +68,33 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
 
   if (!listing) return null;
 
+  const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
+
   const hasNationalId = kycDocs.some((d) => d.documentType === 'NATIONAL_ID');
   const hasDl = kycDocs.some((d) => d.documentType === 'DRIVING_LICENSE');
   const hasPsv = kycDocs.some((d) => d.documentType === 'PSV_BADGE');
   const hasConduct = kycDocs.some((d) => d.documentType === 'POLICE_CLEARANCE');
 
+  // National ID and Driving License are strictly mandatory (as required by Uber/Bolt/Little & Nia Mobility)
   const allCoreDocsReady = hasNationalId && hasDl;
 
-  const handleQuickKycSave = () => {
-    if (nationalIdNum && !hasNationalId) {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: DocumentType) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setUploadingDocType(type);
+    const reader = new FileReader();
+    reader.onload = () => {
       marketplaceStore.submitVerificationDocument({
         userId,
-        documentType: 'NATIONAL_ID',
-        documentNumber: nationalIdNum,
-        fileName: `national_id_${nationalIdNum}.pdf`,
+        documentType: type,
+        documentNumber: `KE-${Date.now().toString().slice(-6)}`,
+        fileName: file.name,
+        fileUrl: reader.result as string,
       });
-    }
-    if (dlNum && !hasDl) {
-      marketplaceStore.submitVerificationDocument({
-        userId,
-        documentType: 'DRIVING_LICENSE',
-        documentNumber: dlNum,
-        fileName: `dl_${dlNum}.pdf`,
-      });
-    }
+      setKycDocs(marketplaceStore.getVerificationDocs(userId));
+      setUploadingDocType(null);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,8 +108,9 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
         throw new Error("Active driver profile not found. Please log in as a Driver.");
       }
 
-      // Automatically register pending docs if entered in quick inputs
-      handleQuickKycSave();
+      if (!allCoreDocsReady) {
+        throw new Error("You must upload both your Kenyan National ID and NTSA Driving License before submitting an application.");
+      }
 
       await marketplaceStore.applyToListing(
         listing.id,
@@ -261,12 +264,12 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
             </div>
 
             {/* Uber / Bolt Standard KYC Enforcement */}
-            <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-3">
+            <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span className="text-xs font-bold text-slate-900">
-                    Required KYC &amp; Verification Documents
+                    Verification Documents (Uber / Bolt &amp; Nia Standard)
                   </span>
                 </div>
                 <button
@@ -278,67 +281,117 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className={`p-2 rounded-xl border flex items-center justify-between ${hasNationalId ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                  <span>Kenyan National ID</span>
-                  {hasNationalId ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span className="text-[10px] text-amber-600 font-bold">Needed</span>}
+              <p className="text-[11px] text-slate-500 leading-tight">
+                To protect vehicle owners from fraud and ensure safety, <strong>National ID</strong> and <strong>Driving License</strong> document uploads are mandatory before applying.
+              </p>
+
+              {/* Document rows */}
+              <div className="space-y-2">
+                {/* 1. National ID */}
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${hasNationalId ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'}`}>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800">1. Kenyan National ID / Passport</span>
+                      <span className="text-[10px] font-extrabold text-rose-600 bg-rose-100 px-1.5 py-0.2 rounded">Required</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      {hasNationalId ? '✓ Document uploaded & ready for partner review' : 'Front & back scan or clear phone photo'}
+                    </p>
+                  </div>
+                  {hasNationalId ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Uploaded
+                    </span>
+                  ) : (
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#102A43] hover:bg-[#1f3f60] text-white text-[11px] font-bold rounded-xl transition-colors shrink-0 shadow-sm">
+                      <Upload className="w-3 h-3" />
+                      <span>{uploadingDocType === 'NATIONAL_ID' ? 'Uploading...' : 'Upload ID'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, 'NATIONAL_ID')}
+                      />
+                    </label>
+                  )}
                 </div>
-                <div className={`p-2 rounded-xl border flex items-center justify-between ${hasDl ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                  <span>NTSA Smart Driving License</span>
-                  {hasDl ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span className="text-[10px] text-amber-600 font-bold">Needed</span>}
+
+                {/* 2. Driving License */}
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between ${hasDl ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'}`}>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800">2. NTSA Smart Driving License</span>
+                      <span className="text-[10px] font-extrabold text-rose-600 bg-rose-100 px-1.5 py-0.2 rounded">Required</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      {hasDl ? '✓ Valid DL uploaded & verified' : 'Class B / PSV Smart DL photo or PDF'}
+                    </p>
+                  </div>
+                  {hasDl ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Uploaded
+                    </span>
+                  ) : (
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#102A43] hover:bg-[#1f3f60] text-white text-[11px] font-bold rounded-xl transition-colors shrink-0 shadow-sm">
+                      <Upload className="w-3 h-3" />
+                      <span>{uploadingDocType === 'DRIVING_LICENSE' ? 'Uploading...' : 'Upload DL'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, 'DRIVING_LICENSE')}
+                      />
+                    </label>
+                  )}
                 </div>
-                <div className={`p-2 rounded-xl border flex items-center justify-between ${hasPsv ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                  <span>NTSA PSV Driver Badge</span>
-                  {hasPsv ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span className="text-[10px] text-slate-400">Optional</span>}
-                </div>
-                <div className={`p-2 rounded-xl border flex items-center justify-between ${hasConduct ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                  <span>Good Conduct (DCI)</span>
-                  {hasConduct ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span className="text-[10px] text-slate-400">Optional</span>}
+
+                {/* 3. PSV Badge or Good Conduct (Optional Trust Boosters) */}
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                  <div className={`p-2 rounded-xl border flex items-center justify-between ${hasPsv ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                    <span className="truncate">PSV Badge (Optional)</span>
+                    {hasPsv ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <label className="cursor-pointer text-[10px] text-blue-600 font-bold hover:underline shrink-0">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, 'PSV_BADGE')}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className={`p-2 rounded-xl border flex items-center justify-between ${hasConduct ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                    <span className="truncate">Good Conduct (DCI)</span>
+                    {hasConduct ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <label className="cursor-pointer text-[10px] text-blue-600 font-bold hover:underline shrink-0">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, 'POLICE_CLEARANCE')}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {!allCoreDocsReady && (
-                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>Quick ID &amp; License Entry</span>
-                  </div>
-                  <p className="text-[11px] text-amber-800 leading-tight">
-                    Vehicle partners prioritize drivers who provide their National ID and NTSA DL numbers.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {!hasNationalId && (
-                      <input
-                        type="text"
-                        placeholder="National ID (e.g. 32918290)"
-                        value={nationalIdNum}
-                        onChange={(e) => setNationalIdNum(e.target.value)}
-                        className="text-xs p-2 rounded-lg border border-slate-300 bg-white"
-                      />
-                    )}
-                    {!hasDl && (
-                      <input
-                        type="text"
-                        placeholder="NTSA DL No (e.g. DL-883921)"
-                        value={dlNum}
-                        onChange={(e) => setDlNum(e.target.value)}
-                        className="text-xs p-2 rounded-lg border border-slate-300 bg-white"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Fast-Track Callout via M-Pesa */}
+            {/* Fast-Track Callout via M-Pesa: KES 99 */}
             <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[#102A43] flex items-center gap-1.5">
                   <Smartphone className="w-3.5 h-3.5 text-[#00A859]" />
-                  <span>Fast-Track &amp; Reveal Partner Contact</span>
+                  <span>Fast-Track Application &amp; Contact Unlock</span>
                 </span>
                 <span className="text-[11px] text-slate-600 block">
-                  Skip the queue and get direct calling access for KES 150 via M-Pesa.
+                  Directly obtain the partner phone number and prioritize your application for KES 99.
                 </span>
               </div>
               <button
@@ -346,14 +399,14 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
                 onClick={() => setMpesaModalOpen(true)}
                 className="px-3 py-1.5 bg-[#00A859] hover:bg-[#008f4c] text-white text-xs font-bold rounded-xl shrink-0 transition-colors shadow-sm"
               >
-                {isContactUnlocked ? 'Unlocked ✅' : 'M-Pesa 150'}
+                {isContactUnlocked ? 'Unlocked ✅' : 'M-Pesa 99'}
               </button>
             </div>
 
             {/* Cover Note Field */}
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">
-                Introduction &amp; Experience Note to Partner:
+                Introduction &amp; Experience Note to Partner: <span className="text-red-500">*</span>
               </label>
               <textarea
                 rows={3}
@@ -361,9 +414,20 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
                 value={coverNote}
                 onChange={(e) => setCoverNote(e.target.value)}
                 className="w-full text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#102A43] focus:border-transparent"
-                placeholder="Describe your driving background, punctuality, and route experience..."
+                placeholder="Introduce yourself — describe your driving background, daily remittance track record, punctuality, and why this vehicle is a good fit for you. Keep it honest and specific."
               />
+              <p className="text-[10px] text-slate-400">Write a genuine introduction — partners read this first.</p>
             </div>
+
+            {/* Doc gate warning */}
+            {!allCoreDocsReady && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                <span>
+                  Please upload your <strong>National ID</strong> and <strong>Driving License</strong> above before submitting. Vehicles cannot be assigned without verified identification.
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="ghost" size="md" onClick={onClose}>
@@ -374,9 +438,10 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
                 variant="primary"
                 size="md"
                 isLoading={isSubmitting}
+                disabled={!allCoreDocsReady || !coverNote.trim()}
                 leftIcon={<Send className="w-4 h-4 text-[#FFF1B8]" />}
               >
-                Submit Application
+                {!allCoreDocsReady ? 'Upload Required Docs to Apply' : 'Submit Application'}
               </Button>
             </div>
           </form>

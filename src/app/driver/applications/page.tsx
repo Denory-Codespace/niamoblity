@@ -39,12 +39,18 @@ export default function DriverApplicationsPage() {
         return false;
       });
 
-      // Enrich applications with listing details if missing
+      // Enrich applications with listing and partner details
       const enriched = raw.map(app => {
         const listing = app.listing || marketplaceStore.listings.find(l => l.id === app.listingId);
+        const partner = marketplaceStore.partners.find(p => p.id === app.partnerId || p.id === listing?.partnerId);
+        const partnerProf = marketplaceStore.profiles.find(p => p.userId === partner?.userId);
+        const partnerUser = marketplaceStore.users.find(u => u.id === partner?.userId);
+        const resolvedPartnerName = partnerProf?.fullName || partner?.companyName || 'Verified Fleet Partner';
         return {
           ...app,
           listing: listing || app.listing,
+          partnerName: resolvedPartnerName,
+          partnerPhone: partnerUser?.phone,
         };
       });
 
@@ -262,7 +268,7 @@ export default function DriverApplicationsPage() {
             driverId={activeChatApp.driverId}
             partnerId={activeChatApp.partnerId}
             driverName={activeChatApp.driver?.fullName || 'Driver'}
-            partnerName={activeChatApp.listing?.partner?.fullName || activeChatApp.partner?.fullName || 'Vehicle Partner'}
+            partnerName={(activeChatApp as any).partnerName || activeChatApp.listing?.partner?.fullName || 'Verified Fleet Owner'}
             listingId={activeChatApp.listingId}
             listingTitle={activeChatApp.listing?.title}
             otherUserPhone={activeChatApp.partner?.phone}

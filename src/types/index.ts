@@ -76,6 +76,7 @@ export interface User {
   phone: string;
   role: UserRole;
   password?: string;
+  avatarUrl?: string;
   isActive: boolean;
   isVerified: boolean;
   createdAt: string;
@@ -110,6 +111,7 @@ export interface DriverProfile {
   completedEngagementsCount: number;
   identityVerified: boolean;
   licenseVerified: boolean;
+  avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,6 +121,7 @@ export interface PartnerProfile {
   userId: string;
   partnerType: 'INDIVIDUAL' | 'COMPANY' | 'FLEET_OPERATOR';
   companyName?: string;
+  phone?: string;
   ratingAvg: number;
   ratingCount: number;
   totalVehiclesCount: number;
@@ -271,6 +274,13 @@ export interface Agreement {
   partnerName?: string;
 }
 
+export interface MessageAttachment {
+  name: string;
+  url: string;
+  type: 'IMAGE' | 'DOCUMENT';
+  sizeBytes?: number;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -278,6 +288,7 @@ export interface Message {
   senderName: string;
   senderRole: UserRole;
   content: string;
+  attachment?: MessageAttachment;
   isRead: boolean;
   createdAt: string;
 }

@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Smartphone,
   Lock,
+  Search,
 } from 'lucide-react';
 import { ChatModal } from '@/components/chat/ChatModal';
 import { MpesaModal } from '@/components/payments/MpesaModal';
@@ -34,6 +35,7 @@ export default function PartnerApplicationsPage() {
   const [mpesaModalOpen, setMpesaModalOpen] = useState(false);
   const [unlockTargetAppId, setUnlockTargetAppId] = useState<string | null>(null);
   const [unlockedApps, setUnlockedApps] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState('');
 
   const partnerId = partnerProfile?.id;
   const userId = currentProfile?.userId;
@@ -88,10 +90,17 @@ export default function PartnerApplicationsPage() {
   };
 
   const filteredApps = applications.filter(a => {
-    if (activeFilter === 'ALL') return true;
-    if (activeFilter === 'PENDING') return a.status === 'SUBMITTED' || a.status === 'VIEWED';
-    if (activeFilter === 'SHORTLISTED') return a.status === 'SHORTLISTED' || a.status === 'INTERVIEW';
-    if (activeFilter === 'ACCEPTED') return a.status === 'ACCEPTED';
+    if (activeFilter === 'PENDING' && !(a.status === 'SUBMITTED' || a.status === 'VIEWED')) return false;
+    if (activeFilter === 'SHORTLISTED' && !(a.status === 'SHORTLISTED' || a.status === 'INTERVIEW')) return false;
+    if (activeFilter === 'ACCEPTED' && a.status !== 'ACCEPTED') return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = a.driver?.fullName?.toLowerCase().includes(q);
+      const matchListing = a.listing?.title?.toLowerCase().includes(q);
+      const matchArea = a.driver?.locationSubcounty?.toLowerCase().includes(q) || a.listing?.subcounty?.toLowerCase().includes(q);
+      return matchName || matchListing || matchArea;
+    }
     return true;
   });
 
@@ -109,71 +118,94 @@ export default function PartnerApplicationsPage() {
             </p>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm text-xs">
-            <button
-              onClick={() => setActiveFilter('ALL')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                activeFilter === 'ALL' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              All ({applications.length})
-            </button>
-            <button
-              onClick={() => setActiveFilter('PENDING')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                activeFilter === 'PENDING' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Pending Review
-            </button>
-            <button
-              onClick={() => setActiveFilter('ACCEPTED')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                activeFilter === 'ACCEPTED' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Accepted
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {/* Search applicants */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search candidates by name, area..."
+                className="pl-9 pr-3 py-1.5 text-xs rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#102A43] w-full sm:w-64"
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm text-xs">
+              <button
+                onClick={() => setActiveFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  activeFilter === 'ALL' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                All ({applications.length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  activeFilter === 'PENDING' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Pending Review
+              </button>
+              <button
+                onClick={() => setActiveFilter('ACCEPTED')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  activeFilter === 'ACCEPTED' ? 'bg-[#102A43] text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Accepted
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Applicants List */}
         <div className="space-y-4">
-          {filteredApps.map((app) => (
-            <div
-              key={app.id}
-              className="bg-white rounded-3xl p-6 border border-slate-200 shadow-soft hover:shadow-card transition-all space-y-5"
-            >
-              {/* Applicant Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div
-                  className="flex items-center gap-4 cursor-pointer group"
-                  onClick={() => setViewingDriverApp(app)}
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-sm ring-4 ring-blue-50 group-hover:ring-blue-200 transition-all overflow-hidden shrink-0">
-                    {app.driver?.avatarUrl ? (
-                      <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      'DR'
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-black text-[#102A43] group-hover:text-blue-600 transition-colors">
-                        {app.driver?.fullName}
-                      </h3>
-                      <Badge variant="verified" size="sm" icon="shield">Verified Driver</Badge>
-                      <Badge variant="match" size="sm" icon="sparkles">{app.matchScorePct}% Match</Badge>
+          {filteredApps.map((app) => {
+            const driverInitials = (app.driver?.fullName || 'Driver')
+              .split(' ')
+              .filter(Boolean)
+              .map((n: string) => n[0])
+              .slice(0, 2)
+              .join('')
+              .toUpperCase() || 'DR';
+
+            return (
+              <div
+                key={app.id}
+                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-soft hover:shadow-card transition-all space-y-5"
+              >
+                {/* Applicant Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div
+                    className="flex items-center gap-4 cursor-pointer group"
+                    onClick={() => setViewingDriverApp(app)}
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-sm ring-4 ring-blue-50 group-hover:ring-blue-200 transition-all overflow-hidden shrink-0">
+                      {app.driver?.avatarUrl ? (
+                        <img src={app.driver.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        driverInitials
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-500">
-                        Applied for <strong>{app.listing?.title}</strong> &bull; {formatDateEAT(app.createdAt)}
-                      </span>
-                      <span className="text-[10px] font-bold text-blue-600 underline">View Full Dossier &rarr;</span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg font-black text-[#102A43] group-hover:text-blue-600 transition-colors">
+                          {app.driver?.fullName}
+                        </h3>
+                        <Badge variant="verified" size="sm" icon="shield">Verified Driver</Badge>
+                        <Badge variant="match" size="sm" icon="sparkles">{app.matchScorePct}% Match</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-500">
+                          Applied for <strong>{app.listing?.title}</strong> &bull; {formatDateEAT(app.createdAt)}
+                        </span>
+                        <span className="text-[10px] font-bold text-blue-600 underline">View Vetting Profile &amp; Documents &rarr;</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-400 font-medium">Status:</span>
@@ -296,7 +328,8 @@ export default function PartnerApplicationsPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Real-time Direct Chat Modal */}

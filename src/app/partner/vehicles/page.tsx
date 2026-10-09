@@ -25,15 +25,22 @@ import {
   MapPin,
   Save,
   ChevronRight,
+  ChevronLeft,
+  Eye,
+  Camera,
+  Search,
 } from 'lucide-react';
 
 export default function PartnerVehiclesPage() {
   const { partnerProfile } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null);
+  const [viewPhotoIndex, setViewPhotoIndex] = useState(0);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const partnerId = partnerProfile?.id;
 
@@ -102,6 +109,18 @@ export default function PartnerVehiclesPage() {
       setIsDeletingId(null);
     }
   };
+
+  const filteredVehicles = vehicles.filter((v) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase().trim();
+    return (
+      v.make.toLowerCase().includes(q) ||
+      v.model.toLowerCase().includes(q) ||
+      v.registrationNumber.toLowerCase().includes(q) ||
+      (v.primarySubcounty && v.primarySubcounty.toLowerCase().includes(q)) ||
+      v.availabilityStatus.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12">
@@ -181,6 +200,28 @@ export default function PartnerVehiclesPage() {
           </div>
         </div>
 
+        {/* Fleet Search Bar */}
+        {vehicles.length > 0 && (
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search fleet by make, model, registration plate (e.g. Demio, KDD 123A)..."
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#102A43] shadow-soft"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Vehicles List */}
         <div className="space-y-4">
           {vehicles.length === 0 ? (
@@ -200,13 +241,20 @@ export default function PartnerVehiclesPage() {
                 </Button>
               </Link>
             </div>
+          ) : filteredVehicles.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-soft space-y-2">
+              <p className="text-sm font-bold text-slate-700">No fleet vehicles match &ldquo;{searchTerm}&rdquo;</p>
+              <button onClick={() => setSearchTerm('')} className="text-xs text-blue-600 font-bold underline">
+                Clear search filter
+              </button>
+            </div>
           ) : (
-            vehicles.map((v) => (
+            filteredVehicles.map((v) => (
               <div
                 key={v.id}
-                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-soft hover:shadow-card transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-soft hover:shadow-card hover:scale-[1.01] transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-6"
               >
-                <div className="flex items-start sm:items-center gap-4">
+                <div className="flex items-start sm:items-center gap-4 cursor-pointer" onClick={() => { setViewingVehicle(v); setViewPhotoIndex(0); }}>
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200">
                     {v.photos && v.photos[0] ? (
                       <img src={v.photos[0]} alt="" className="w-full h-full object-cover" />
@@ -235,7 +283,6 @@ export default function PartnerVehiclesPage() {
                         {v.availabilityStatus}
                       </Badge>
                     </div>
-
                     <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-500">
                       <span className="flex items-center gap-1">
                         <Gauge className="w-3.5 h-3.5 text-slate-400" />
@@ -251,11 +298,25 @@ export default function PartnerVehiclesPage() {
                         {v.primarySubcounty ? `, ${v.primarySubcounty}` : ''}
                       </span>
                       <span>Color: {v.color}</span>
+                      {v.photos && v.photos.length > 0 && (
+                        <span className="flex items-center gap-1 text-blue-500">
+                          <Camera className="w-3.5 h-3.5" />
+                          {v.photos.length} photo{v.photos.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setViewingVehicle(v); setViewPhotoIndex(0); }}
+                    leftIcon={<Eye className="w-3.5 h-3.5" />}
+                  >
+                    View
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -280,7 +341,137 @@ export default function PartnerVehiclesPage() {
           )}
         </div>
 
-        {/* Edit Vehicle Modal */}
+        {/* Vehicle Detail View Modal */}
+        {viewingVehicle && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200">
+              {/* Photo Carousel */}
+              <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-3xl">
+                {viewingVehicle.photos && viewingVehicle.photos.length > 0 ? (
+                  <img
+                    src={viewingVehicle.photos[viewPhotoIndex]}
+                    alt="Vehicle"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Car className="w-16 h-16 text-slate-300" />
+                  </div>
+                )}
+                {viewingVehicle.photos && viewingVehicle.photos.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setViewPhotoIndex(i => (i - 1 + (viewingVehicle.photos?.length || 1)) % (viewingVehicle.photos?.length || 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setViewPhotoIndex(i => (i + 1) % (viewingVehicle.photos?.length || 1))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {viewingVehicle.photos?.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setViewPhotoIndex(i)}
+                          className={`w-2 h-2 rounded-full transition-all ${
+                            i === viewPhotoIndex ? 'bg-white scale-125' : 'bg-white/50'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="absolute bottom-3 right-3 text-[10px] font-bold bg-black/40 text-white px-2 py-0.5 rounded-full">
+                      {viewPhotoIndex + 1} / {viewingVehicle.photos?.length}
+                    </div>
+                  </>
+                )}
+                <button
+                  onClick={() => setViewingVehicle(null)}
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-slate-700 hover:bg-white shadow"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="absolute top-3 left-3">
+                  <Badge
+                    variant={viewingVehicle.availabilityStatus === 'AVAILABLE' ? 'verified' : viewingVehicle.availabilityStatus === 'ASSIGNED' ? 'match' : 'neutral'}
+                    size="sm"
+                  >
+                    {viewingVehicle.availabilityStatus}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Thumbnail strip */}
+              {viewingVehicle.photos && viewingVehicle.photos.length > 1 && (
+                <div className="px-5 pt-3 flex gap-2 overflow-x-auto no-scrollbar">
+                  {viewingVehicle.photos.map((p, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setViewPhotoIndex(i)}
+                      className={`shrink-0 w-14 h-10 rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
+                        i === viewPhotoIndex ? 'border-[#102A43]' : 'border-transparent'
+                      }`}
+                    >
+                      <img src={p} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Vehicle Info */}
+              <div className="p-5 sm:p-6 space-y-4">
+                <div>
+                  <h2 className="text-xl font-black text-[#102A43]">
+                    {viewingVehicle.make} {viewingVehicle.model} ({viewingVehicle.year})
+                  </h2>
+                  <p className="text-xs text-slate-500 font-mono font-bold">{viewingVehicle.registrationNumber}</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: 'Transmission', value: viewingVehicle.transmission },
+                    { label: 'Fuel Type', value: viewingVehicle.fuelType },
+                    { label: 'Color', value: viewingVehicle.color },
+                    { label: 'Base County', value: viewingVehicle.primaryCounty },
+                    { label: 'Sub-County', value: viewingVehicle.primarySubcounty || '—' },
+                    { label: 'Seating', value: `${viewingVehicle.seatingCapacity || 4} Seats` },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-slate-50 rounded-xl p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setEditingVehicle(viewingVehicle); setViewingVehicle(null); }}
+                    leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                    className="flex-1"
+                  >
+                    Edit Details
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-rose-600 hover:bg-rose-50 flex-1"
+                    disabled={isDeletingId === viewingVehicle.id}
+                    onClick={() => { handleDelete(viewingVehicle.id); setViewingVehicle(null); }}
+                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                  >
+                    Delete Vehicle
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {editingVehicle && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-6">

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Safaricom Daraja M-Pesa STK Push API Endpoint
  * Handles Lipa Na M-Pesa Online (STK Push) requests

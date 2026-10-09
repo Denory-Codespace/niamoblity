@@ -14,6 +14,7 @@ import {
   Agreement,
   Conversation,
   Message,
+  MessageAttachment,
   Review,
   VerificationDocument,
   NotificationItem,
@@ -443,6 +444,7 @@ class MarketplaceStore {
     senderRole: UserRole;
     recipientUserId: string;
     content: string;
+    attachment?: MessageAttachment;
   }): Message {
     const newMsg: Message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -451,6 +453,7 @@ class MarketplaceStore {
       senderName: params.senderName,
       senderRole: params.senderRole,
       content: params.content,
+      attachment: params.attachment,
       isRead: false,
       createdAt: new Date().toISOString(),
     };
@@ -569,6 +572,16 @@ class MarketplaceStore {
 
       this.notify();
     }
+  }
+
+  public updateAvatar(userId: string, avatarUrl: string) {
+    const prof = this.profiles.find(p => p.userId === userId);
+    if (prof) prof.avatarUrl = avatarUrl;
+    const usr = this.users.find(u => u.id === userId);
+    if (usr) usr.avatarUrl = avatarUrl;
+    const drv = this.drivers.find(d => d.userId === userId);
+    if (drv) drv.avatarUrl = avatarUrl;
+    this.notify();
   }
 
   // --- Real Registration Flow ---

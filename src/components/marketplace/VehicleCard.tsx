@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+
 import Link from 'next/link';
 import { VehicleListing } from '@/types';
 import { Badge } from '@/components/ui/Badge';
@@ -18,6 +19,8 @@ import {
   Layers,
   CheckCircle2,
   Users,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { marketplaceStore } from '@/lib/db/store';
 import { useAuth } from '@/lib/auth/auth-context';
@@ -35,8 +38,10 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
   const { role, partnerProfile } = useAuth();
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [partnerModalOpen, setPartnerModalOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const vehicle = listing.vehicle;
-  const photoUrl = vehicle?.photos?.[0] || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80';
+  const photos = vehicle?.photos?.length ? vehicle.photos : ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80'];
+  const photoUrl = photos[photoIndex] || photos[0];
 
   const isMyListing = role === 'PARTNER' && partnerProfile && listing.partnerId === partnerProfile.id;
   const isPartner = role === 'PARTNER';
@@ -45,17 +50,43 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
   const appsForListing = marketplaceStore.applications.filter((a) => a.listingId === listing.id);
   const totalProposals = Math.max(appsForListing.length, listing.applicationsCount || 0);
   const interviewingCount = appsForListing.filter((a) => a.status === 'INTERVIEW' || a.status === 'SHORTLISTED').length;
-
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-soft hover:shadow-card transition-all duration-200 flex flex-col group">
+      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-soft hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group">
         {/* Card Image & Overlay Badges */}
         <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
           <img
             src={photoUrl}
             alt={listing.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
+
+          {/* Photo carousel dots when there are multiple photos */}
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setPhotoIndex(i => (i - 1 + photos.length) % photos.length); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setPhotoIndex(i => (i + 1) % photos.length); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {photos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setPhotoIndex(i); }}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === photoIndex ? 'bg-white scale-110' : 'bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Top Left: Match Score Badge if Driver */}
           {matchScorePct !== undefined && (

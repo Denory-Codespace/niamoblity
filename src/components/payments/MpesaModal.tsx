@@ -43,7 +43,8 @@ export function MpesaModal({
   defaultPhone = '',
   onSuccess,
 }: MpesaModalProps) {
-  const [phoneNumber, setPhoneNumber] = useState(defaultPhone || '0712 345 678');
+  // Always start with blank input so user enters their own personal M-Pesa number
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [status, setStatus] = useState<
     'IDLE' | 'REQUESTING' | 'PROMPTING_PIN' | 'CONFIRMING' | 'SUCCESS' | 'ERROR'
   >('IDLE');
@@ -203,17 +204,17 @@ export function MpesaModal({
                 🇰🇪 +254
               </span>
               <input
-                type="text"
+                type="tel"
                 required
                 disabled={status !== 'IDLE' && status !== 'ERROR'}
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="712345678"
+                placeholder="Enter your M-Pesa Number eg 0712345678"
                 className="w-full text-sm pl-20 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00A859] focus:border-transparent font-medium"
               />
             </div>
             <p className="text-[11px] text-slate-500">
-              An instant STK Push prompt will be sent to this phone.
+              Enter your active Safaricom line. An instant STK PIN prompt will pop up on your phone.
             </p>
           </div>
 

@@ -19,6 +19,7 @@ import {
   Lock,
   Smartphone,
   Award,
+  Camera,
 } from 'lucide-react';
 import { MpesaModal } from '@/components/payments/MpesaModal';
 
@@ -69,23 +70,54 @@ export function DriverProfileModal({
     if (onUnlockSuccess) onUnlockSuccess();
   };
 
+  const currentAvatar = avatarUrl || profile?.avatarUrl || user?.avatarUrl;
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'DR';
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !driver?.userId) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = reader.result as string;
+      marketplaceStore.updateAvatar(driver.userId, url);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <>
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Driver Verified Dossier"
-        description="Comprehensive vetting credentials, ratings, and operating history"
+        title="Driver Vetting &amp; Credentials Profile"
+        description="Comprehensive verification documents, ratings, and operating history"
       >
         <div className="space-y-5 pt-1">
           {/* Header Card */}
           <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
-            <div className="w-14 h-14 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-lg overflow-hidden shrink-0 shadow-md">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-              ) : (
-                displayName.slice(0, 2).toUpperCase()
-              )}
+            <div className="relative group">
+              <div className="w-14 h-14 rounded-2xl bg-[#102A43] text-white flex items-center justify-center font-bold text-lg overflow-hidden shrink-0 shadow-md">
+                {currentAvatar ? (
+                  <img src={currentAvatar} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
+              <label className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#102A43] hover:bg-blue-600 text-white flex items-center justify-center cursor-pointer shadow-md transition-colors">
+                <Camera className="w-3.5 h-3.5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFile}
+                />
+              </label>
             </div>
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">

@@ -297,6 +297,7 @@ export class DatabaseService {
       email: u.email,
       phone: u.phone,
       role: u.role,
+      avatarUrl: u.avatar_url,
       isActive: u.is_active,
       isVerified: u.is_verified,
       createdAt: u.created_at,
@@ -413,6 +414,7 @@ export class DatabaseService {
       userId: p.user_id,
       partnerType: p.partner_type || 'INDIVIDUAL',
       companyName: p.company_name,
+      phone: p.phone,
       ratingAvg: Number(p.rating_avg || 5.0),
       ratingCount: p.rating_count || 0,
       totalVehiclesCount: p.total_vehicles_count || 0,
@@ -823,6 +825,9 @@ export class DatabaseService {
       senderRole: m.sender_role,
       content: m.content,
       isRead: m.is_read,
+      attachmentName: m.attachment_name,
+      attachmentUrl: m.attachment_url,
+      attachmentType: m.attachment_type,
       createdAt: m.created_at,
     }));
   }
@@ -835,6 +840,9 @@ export class DatabaseService {
       sender_name: msg.senderName,
       sender_role: msg.senderRole,
       content: msg.content,
+      attachment_name: msg.attachmentName || null,
+      attachment_url: msg.attachmentUrl || null,
+      attachment_type: msg.attachmentType || null,
       is_read: msg.isRead || false,
       created_at: msg.createdAt || new Date().toISOString(),
     });

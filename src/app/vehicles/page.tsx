@@ -1,6 +1,6 @@
 'use client';
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { VehicleCard } from '@/components/marketplace/VehicleCard';
 import { marketplaceStore } from '@/lib/db/store';
 import { useAuth } from '@/lib/auth/auth-context';
@@ -17,10 +17,20 @@ import {
   Layers,
   Fuel,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 
 export default function VehiclesMarketplacePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F8FAFC] py-12 text-center text-slate-500">Loading Nairobi Marketplace...</div>}>
+      <VehiclesMarketplaceContent />
+    </Suspense>
+  );
+}
+
+function VehiclesMarketplaceContent() {
   const { driverProfile, role } = useAuth();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubcounty, setSelectedSubcounty] = useState<string>('ALL');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
@@ -31,6 +41,13 @@ export default function VehiclesMarketplacePage() {
   const [mounted, setMounted] = useState(false);
   const [listings, setListings] = useState<any[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const q = searchParams.get('q') || searchParams.get('search');
+    if (q) setSearchTerm(q);
+    const sub = searchParams.get('subcounty') || searchParams.get('area');
+    if (sub) setSelectedSubcounty(sub);
+  }, [searchParams]);
 
   useEffect(() => {
     setMounted(true);
@@ -46,11 +63,18 @@ export default function VehiclesMarketplacePage() {
 
   // Filter listings
   const filteredListings = listings.filter((item) => {
+    const q = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.vehicle?.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.vehicle?.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.county.toLowerCase().includes(searchTerm.toLowerCase());
+      !q ||
+      item.title.toLowerCase().includes(q) ||
+      item.vehicle?.make.toLowerCase().includes(q) ||
+      item.vehicle?.model.toLowerCase().includes(q) ||
+      item.vehicle?.registrationNumber?.toLowerCase().includes(q) ||
+      item.county?.toLowerCase().includes(q) ||
+      item.subcounty?.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q) ||
+      item.vehicle?.transmission?.toLowerCase().includes(q) ||
+      item.vehicle?.fuelType?.toLowerCase().includes(q);
 
     const matchesSubcounty =
       selectedSubcounty === 'ALL' ||
@@ -118,9 +142,17 @@ export default function VehiclesMarketplacePage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by make, model, or area (e.g. Fielder, Axio, Kasarani, Westlands)..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#102A43]"
+              placeholder="Search by make, model, reg plate, zone (e.g. Fielder, Axio, Demio, Westlands, KDD)..."
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#102A43]"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* Filter Pills Grid */}
