@@ -23,6 +23,7 @@ import {
   UserPlus,
   LogOut,
 } from 'lucide-react';
+import Image from 'next/image';
 import { marketplaceStore } from '@/lib/db/store';
 import { UserRole } from '@/types';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
@@ -85,8 +86,15 @@ export default function Navbar() {
             {/* Brand Logo */}
             <div className="flex items-center gap-6">
               <Link href="/" className="flex items-center gap-2.5 group">
-                <div className="w-10 h-10 rounded-xl bg-[#102A43] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-                  <Car className="w-6 h-6 text-[#FFF1B8]" />
+                <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform shrink-0">
+                  <Image
+                    src="/icons/icon-192.png"
+                    alt="nia mobility logo"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xl sm:text-2xl font-black tracking-tight text-[#102A43] font-heading leading-tight">

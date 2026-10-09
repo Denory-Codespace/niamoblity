@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { Car, ShieldCheck, MapPin, Heart } from 'lucide-react';
+import Image from 'next/image';
+import { ShieldCheck, MapPin, Heart } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -10,8 +11,14 @@ export default function Footer() {
           {/* Col 1: Brand & Mission */}
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
-                <Car className="w-5 h-5 text-[#FFF1B8]" />
+              <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
+                <Image
+                  src="/icons/icon-192.png"
+                  alt="nia mobility"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span className="text-xl font-black tracking-tight font-heading">
                 nia<span className="text-blue-400">mobility</span>
