@@ -8,7 +8,8 @@
 -- SECTION 1: ADD MISSING COLUMNS
 -- ============================================================
 
--- avatar_url on users (for profile photo syncing)
+-- password and avatar_url on users
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password VARCHAR(255) NULL;
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS avatar_url TEXT NULL;
 
 -- avatar_url on drivers (driver photo)
@@ -17,8 +18,28 @@ ALTER TABLE IF EXISTS drivers ADD COLUMN IF NOT EXISTS avatar_url TEXT NULL;
 -- phone on partners (for contact display)
 ALTER TABLE IF EXISTS partners ADD COLUMN IF NOT EXISTS phone VARCHAR(50) NULL;
 
--- Fix verification_documents: app sends file_url not file_path, and no mime_type
+-- photos, availability_status, verification_status on vehicles
+ALTER TABLE IF EXISTS vehicles ADD COLUMN IF NOT EXISTS photos TEXT[] DEFAULT '{}';
+ALTER TABLE IF EXISTS vehicles ADD COLUMN IF NOT EXISTS availability_status VARCHAR(50) DEFAULT 'AVAILABLE';
+ALTER TABLE IF EXISTS vehicles ADD COLUMN IF NOT EXISTS verification_status VARCHAR(50) DEFAULT 'UNVERIFIED';
+
+-- preferred_platforms and status on vehicle_listings
+ALTER TABLE IF EXISTS vehicle_listings ADD COLUMN IF NOT EXISTS preferred_platforms TEXT[] DEFAULT '{}';
+ALTER TABLE IF EXISTS vehicle_listings ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'PUBLISHED';
+
+-- agreements columns
+ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS operating_area VARCHAR(255) NULL;
+ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS partner_signed_at TIMESTAMPTZ NULL;
+ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS driver_signed_at TIMESTAMPTZ NULL;
+ALTER TABLE IF EXISTS agreements ADD COLUMN IF NOT EXISTS termination_reason TEXT NULL;
+
+-- Fix verification_documents: support file_url, file_name, document_number, etc.
 ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS file_url TEXT NULL;
+ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS file_name TEXT NULL;
+ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS document_number VARCHAR(100) NULL;
+ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS rejection_reason TEXT NULL;
+ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ NULL;
+ALTER TABLE IF EXISTS verification_documents ADD COLUMN IF NOT EXISTS vehicle_id UUID NULL;
 ALTER TABLE IF EXISTS verification_documents ALTER COLUMN file_path DROP NOT NULL;
 ALTER TABLE IF EXISTS verification_documents ALTER COLUMN mime_type DROP NOT NULL;
 

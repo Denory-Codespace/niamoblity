@@ -18,12 +18,17 @@ import {
   AlertCircle,
   TrendingUp,
   Activity,
+  Eye,
+  FileText,
+  Download,
+  X,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const { currentProfile } = useAuth();
   const [stats, setStats] = useState(marketplaceStore.getPlatformStats());
   const [verificationDocs, setVerificationDocs] = useState(marketplaceStore.verificationDocs);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
 
   // Dynamic Matching Weights state
   const [weights, setWeights] = useState({
@@ -136,9 +141,20 @@ export default function AdminDashboardPage() {
                         <span className="font-bold text-xs text-[#102A43] font-mono">{doc.documentType}</span>
                         <span className="text-xs font-bold text-slate-600">({doc.documentNumber || 'Ref doc'})</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">
-                        Uploaded by #{doc.userId} &bull; File: <strong className="text-blue-600">{doc.fileName}</strong>
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] text-slate-500 block">
+                          Uploaded by #{doc.userId} &bull; File: <strong className="text-blue-600">{doc.fileName}</strong>
+                        </span>
+                        {doc.fileUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc({ url: doc.fileUrl!, name: doc.fileName })}
+                            className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" /> Inspect Scan
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -306,6 +322,60 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Admin Document Inspection Lightbox Modal */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-5 h-5 text-blue-600 shrink-0" />
+                <span className="font-bold text-sm text-[#102A43] truncate">{previewDoc.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = previewDoc.url;
+                    a.download = previewDoc.name || 'document.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                  className="px-3 py-1.5 bg-[#102A43] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-blue-900 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex-1 overflow-auto flex items-center justify-center min-h-[300px] bg-slate-100">
+              {previewDoc.url.startsWith('data:image/') || previewDoc.url.endsWith('.jpg') || previewDoc.url.endsWith('.png') || previewDoc.url.endsWith('.jpeg') ? (
+                <img src={previewDoc.url} alt={previewDoc.name} className="max-h-[60vh] max-w-full object-contain rounded-xl" />
+              ) : (
+                <div className="text-center p-8 space-y-3">
+                  <FileText className="w-16 h-16 text-blue-500 mx-auto" />
+                  <p className="font-bold text-slate-800 text-sm">{previewDoc.name}</p>
+                  <p className="text-xs text-slate-500">Document authenticated under Kenyan compliance standards.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

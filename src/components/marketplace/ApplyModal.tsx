@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -232,6 +233,32 @@ export function ApplyModal({ isOpen, onClose, listing, onSuccess }: ApplyModalPr
               </Button>
               <Button variant="ghost" size="sm" onClick={onClose}>
                 Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (driverProfile && marketplaceStore.applications.some(
+          (a) => a.listingId === listing.id && a.driverId === driverProfile.id && a.status !== 'WITHDRAWN'
+        )) ? (
+          <div className="py-6 space-y-5 text-center">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-[#102A43]">
+                Application Already Submitted
+              </h4>
+              <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                You have already submitted an active application for this vehicle opportunity. The vehicle partner is reviewing your profile and credentials.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 max-w-xs mx-auto pt-2">
+              <Link href="/driver/applications" onClick={onClose}>
+                <Button variant="primary" size="md" className="w-full justify-center">
+                  Track in My Applications &rarr;
+                </Button>
+              </Link>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                Close
               </Button>
             </div>
           </div>

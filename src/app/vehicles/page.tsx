@@ -37,6 +37,7 @@ function VehiclesMarketplaceContent() {
   const [selectedVehicleType, setSelectedVehicleType] = useState<string>('ALL');
   const [maxDailyTarget, setMaxDailyTarget] = useState<number>(5000);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'MATCH' | 'LATEST' | 'TARGET_ASC' | 'TARGET_DESC'>('LATEST');
 
   const [mounted, setMounted] = useState(false);
   const [listings, setListings] = useState<any[]>([]);
@@ -99,6 +100,22 @@ function VehiclesMarketplaceContent() {
     return matchesSearch && matchesSubcounty && matchesPlatform && matchesType && matchesTarget && matchesVerified;
   });
 
+  // Sort listings based on selected mode
+  const sortedAndFilteredListings = [...filteredListings].sort((a, b) => {
+    if (sortBy === 'LATEST') {
+      const dateA = new Date(a.createdAt || a.publishedAt || 0).getTime();
+      const dateB = new Date(b.createdAt || b.publishedAt || 0).getTime();
+      return dateB - dateA;
+    }
+    if (sortBy === 'TARGET_ASC') {
+      return (a.targetAmountKes || 0) - (b.targetAmountKes || 0);
+    }
+    if (sortBy === 'TARGET_DESC') {
+      return (b.targetAmountKes || 0) - (a.targetAmountKes || 0);
+    }
+    return (b.matchScorePct || 0) - (a.matchScorePct || 0);
+  });
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -128,7 +145,7 @@ function VehiclesMarketplaceContent() {
               Marketplace Liquidity
             </span>
             <span className="text-sm font-extrabold text-[#102A43]">
-              {mounted ? filteredListings.length : 0} Vehicles Available
+              {mounted ? sortedAndFilteredListings.length : 0} Vehicles Available
             </span>
           </div>
         </div>
@@ -156,11 +173,28 @@ function VehiclesMarketplaceContent() {
           </div>
 
           {/* Filter Pills Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+            {/* Sort by Filter */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                Display Order
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-full text-xs p-2 rounded-lg border border-blue-200 bg-blue-50/50 text-[#102A43] font-bold focus:outline-none focus:ring-2 focus:ring-[#102A43]"
+              >
+                <option value="LATEST">🆕 Latest Posted</option>
+                {role === 'DRIVER' && <option value="MATCH">✨ Best Compatibility</option>}
+                <option value="TARGET_ASC">💰 Target: Low to High</option>
+                <option value="TARGET_DESC">💰 Target: High to Low</option>
+              </select>
+            </div>
+
             {/* Area Filter */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                Nairobi Operating Zone
+                Nairobi Zone
               </label>
               <select
                 value={selectedSubcounty}
@@ -198,7 +232,7 @@ function VehiclesMarketplaceContent() {
             {/* Vehicle Type */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                Vehicle Body Type
+                Body Type
               </label>
               <select
                 value={selectedVehicleType}
@@ -216,7 +250,7 @@ function VehiclesMarketplaceContent() {
             {/* Max Daily Target */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
-                Max Daily Target: KES {maxDailyTarget.toLocaleString()}
+                Max Target: KES {maxDailyTarget.toLocaleString()}
               </label>
               <input
                 type="range"
@@ -232,9 +266,9 @@ function VehiclesMarketplaceContent() {
         </div>
 
         {/* Listings Grid */}
-        {filteredListings.length > 0 ? (
+        {sortedAndFilteredListings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map((listing) => (
+            {sortedAndFilteredListings.map((listing) => (
               <VehicleCard
                 key={listing.id}
                 listing={listing}

@@ -62,6 +62,7 @@ export function ChatModal({
   const [inputText, setInputText] = useState('');
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [viewingMedia, setViewingMedia] = useState<{ url: string; name: string; type: 'IMAGE' | 'DOCUMENT' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -209,15 +210,9 @@ export function ChatModal({
                     {listingTitle}
                   </span>
                 )}
-                {isContactUnlocked && otherUserPhone && (
-                  <a
-                    href={`tel:${otherUserPhone}`}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-lg hover:underline ml-1"
-                  >
-                    <Phone className="w-3 h-3" />
-                    {otherUserPhone}
-                  </a>
-                )}
+                <span className="text-[10px] text-emerald-300/90 bg-emerald-950/60 px-2 py-0.5 rounded-md font-semibold">
+                  Protected In-App Chat
+                </span>
               </div>
             </div>
           </div>
@@ -295,25 +290,57 @@ export function ChatModal({
                     {/* Attached Image */}
                     {msg.attachment?.type === 'IMAGE' && (
                       <div className="pt-1">
-                        <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer">
+                        <button
+                          type="button"
+                          onClick={() => setViewingMedia({
+                            url: msg.attachment!.url,
+                            name: msg.attachment!.name,
+                            type: 'IMAGE'
+                          })}
+                          className="block text-left group relative rounded-xl overflow-hidden focus:outline-none"
+                        >
                           <img
                             src={msg.attachment.url}
                             alt={msg.attachment.name}
-                            className="rounded-xl max-h-52 w-auto object-cover border border-black/10 hover:opacity-95 transition-opacity"
+                            className="rounded-xl max-h-52 w-auto object-cover border border-black/10 group-hover:opacity-90 transition-opacity"
                           />
-                        </a>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
-                          {msg.attachment.name}
-                        </span>
+                          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1">
+                            Click to View / Zoom
+                          </span>
+                        </button>
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                          <span className="truncate max-w-[180px]">{msg.attachment.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const a = document.createElement('a');
+                              a.href = msg.attachment!.url;
+                              a.download = msg.attachment!.name || 'photo.jpg';
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            }}
+                            className="text-blue-500 hover:underline font-semibold ml-2 shrink-0"
+                          >
+                            Download
+                          </button>
+                        </div>
                       </div>
                     )}
 
                     {/* Attached Document */}
                     {msg.attachment?.type === 'DOCUMENT' && (
-                      <a
-                        href={msg.attachment.url}
-                        download={msg.attachment.name}
-                        className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-colors ${
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = msg.attachment!.url;
+                          a.download = msg.attachment!.name || 'document.pdf';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }}
+                        className={`w-full p-2.5 rounded-xl border flex items-center gap-2.5 transition-colors text-left ${
                           isMe
                             ? 'bg-white/10 border-white/20 hover:bg-white/15 text-white'
                             : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'
@@ -322,10 +349,10 @@ export function ChatModal({
                         <FileText className={`w-5 h-5 shrink-0 ${isMe ? 'text-blue-300' : 'text-blue-600'}`} />
                         <div className="min-w-0 flex-1 text-left">
                           <p className="text-xs font-bold truncate">{msg.attachment.name}</p>
-                          <p className="text-[10px] opacity-75">Click to view / download</p>
+                          <p className="text-[10px] opacity-75">Click to download document</p>
                         </div>
                         <Download className="w-4 h-4 shrink-0 opacity-80" />
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -397,6 +424,54 @@ export function ChatModal({
           </Button>
         </form>
       </div>
+
+      {/* Lightbox Image Preview Modal */}
+      {viewingMedia && viewingMedia.type === 'IMAGE' && (
+        <div
+          className="fixed inset-0 z-100 bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setViewingMedia(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-3 text-white">
+              <span className="text-xs font-medium truncate max-w-sm">{viewingMedia.name}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = viewingMedia.url;
+                    a.download = viewingMedia.name || 'image.jpg';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingMedia(null)}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden bg-black/40 border border-white/10 max-h-[75vh]">
+              <img
+                src={viewingMedia.url}
+                alt={viewingMedia.name}
+                className="max-h-[75vh] max-w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

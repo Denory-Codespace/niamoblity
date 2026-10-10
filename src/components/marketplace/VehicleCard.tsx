@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 import { VehicleListing } from '@/types';
@@ -35,16 +35,42 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveToggle }: VehicleCardProps) {
-  const { role, partnerProfile } = useAuth();
+  const { role, partnerProfile, driverProfile } = useAuth();
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [partnerModalOpen, setPartnerModalOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const vehicle = listing.vehicle;
+  const [, setStoreTick] = useState(0);
+
+  // Subscribe to reactive store updates so live vehicle/partner changes reflect immediately
+  useEffect(() => {
+    return marketplaceStore.subscribe(() => setStoreTick(t => t + 1));
+  }, []);
+
+  const vehicle = listing.vehicle || marketplaceStore.vehicles.find(v => v.id === listing.vehicleId);
   const photos = vehicle?.photos?.length ? vehicle.photos : ['https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80'];
   const photoUrl = photos[photoIndex] || photos[0];
 
   const isMyListing = role === 'PARTNER' && partnerProfile && listing.partnerId === partnerProfile.id;
   const isPartner = role === 'PARTNER';
+
+  // Resolve genuine partner name
+  const partnerRec = marketplaceStore.partners.find((p) => p.id === listing.partnerId || p.userId === listing.partnerId);
+  const partnerProfileRec = partnerRec ? marketplaceStore.profiles.find((p) => p.userId === partnerRec.userId) : null;
+  const partnerNameResolved = (listing.partner?.fullName && listing.partner.fullName !== 'Vehicle Partner')
+    ? listing.partner.fullName
+    : partnerProfileRec?.fullName || partnerRec?.companyName || listing.partner?.fullName || 'Verified Fleet Owner';
+
+  // Check if current driver has already submitted an application
+  const hasApplied = role === 'DRIVER' && driverProfile && marketplaceStore.applications.some(
+    (a) => a.listingId === listing.id && a.driverId === driverProfile.id && a.status !== 'WITHDRAWN'
+  );
+
+  // Check if vehicle has already been hired / signed into active contract
+  const isHired = listing.status === 'HIRED' ||
+    listing.vehicle?.availabilityStatus === 'ASSIGNED' ||
+    marketplaceStore.agreements.some(
+      (ag) => (ag.listingId === listing.id || (listing.vehicleId && ag.vehicleId === listing.vehicleId)) && (ag.status === 'ACTIVE' || ag.status === 'COMPLETED')
+    );
 
   // Upwork-style Application & Proposal metrics
   const appsForListing = marketplaceStore.applications.filter((a) => a.listingId === listing.id);
@@ -52,7 +78,11 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
   const interviewingCount = appsForListing.filter((a) => a.status === 'INTERVIEW' || a.status === 'SHORTLISTED').length;
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-soft hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group">
+      <div className={`bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-soft transition-all duration-300 flex flex-col group ${
+        isHired
+          ? 'opacity-75 grayscale-25 border-dashed border-slate-300'
+          : 'hover:shadow-xl hover:-translate-y-1.5'
+      }`}>
         {/* Card Image & Overlay Badges */}
         <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
           <img
@@ -88,14 +118,20 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
             </>
           )}
 
-          {/* Top Left: Match Score Badge if Driver */}
-          {matchScorePct !== undefined && (
+          {/* Top Left: Hired Badge or Match Score Badge */}
+          {isHired ? (
+            <div className="absolute top-3 left-3">
+              <span className="px-2.5 py-1 rounded-xl text-[10px] font-black bg-slate-900/90 text-white backdrop-blur-xs flex items-center gap-1 shadow-md">
+                🔒 Hired &bull; In Active Service
+              </span>
+            </div>
+          ) : matchScorePct !== undefined ? (
             <div className="absolute top-3 left-3">
               <Badge variant="match" size="md" icon="sparkles" className="shadow-md font-bold">
                 {matchScorePct}% Match
               </Badge>
             </div>
-          )}
+          ) : null}
 
           {/* Top Right: Save Bookmark Button */}
           <button
@@ -168,7 +204,7 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
             {/* Partner Attribution */}
             <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
               <span className="truncate">
-                Partner: <strong className="text-slate-700">{listing.partner?.fullName || "Vehicle Partner"}</strong>
+                Partner: <strong className="text-slate-700">{partnerNameResolved}</strong>
               </span>
               <button
                 type="button"
@@ -219,6 +255,25 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
               <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1.5 rounded-xl">
                 Partner View
               </span>
+            ) : isHired ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                className="bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-80"
+              >
+                Position Filled
+              </Button>
+            ) : hasApplied ? (
+              <Link href="/driver/applications">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-[11px]"
+                >
+                  Applied ✓ Track
+                </Button>
+              </Link>
             ) : (
               <Button
                 variant="primary"
@@ -242,7 +297,7 @@ export function VehicleCard({ listing, matchScorePct, isSaved = false, onSaveTog
         isOpen={partnerModalOpen}
         onClose={() => setPartnerModalOpen(false)}
         partnerId={listing.partnerId}
-        partnerName={listing.partner?.fullName}
+        partnerName={partnerNameResolved}
       />
     </>
   );

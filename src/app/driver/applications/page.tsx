@@ -45,11 +45,16 @@ export default function DriverApplicationsPage() {
         const partner = marketplaceStore.partners.find(p => p.id === app.partnerId || p.id === listing?.partnerId);
         const partnerProf = marketplaceStore.profiles.find(p => p.userId === partner?.userId);
         const partnerUser = marketplaceStore.users.find(u => u.id === partner?.userId);
-        const resolvedPartnerName = partnerProf?.fullName || partner?.companyName || 'Verified Fleet Partner';
+        const resolvedPartnerName = partnerProf?.fullName || partner?.companyName || app.partner?.fullName || listing?.partner?.fullName || 'Verified Fleet Partner';
         return {
           ...app,
           listing: listing || app.listing,
           partnerName: resolvedPartnerName,
+          partner: {
+            id: partner?.id || app.partnerId,
+            fullName: resolvedPartnerName,
+            phone: partnerUser?.phone,
+          },
           partnerPhone: partnerUser?.phone,
         };
       });
@@ -165,7 +170,9 @@ export default function DriverApplicationsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div className="bg-slate-50 p-3.5 rounded-2xl">
                     <span className="text-slate-400 block font-medium mb-0.5">Vehicle Partner</span>
-                    <span className="font-bold text-slate-800">{app.listing?.partner?.fullName || "David Kamau"}</span>
+                    <span className="font-bold text-slate-800">
+                      {(app as any).partnerName || app.partner?.fullName || app.listing?.partner?.fullName || "Verified Fleet Partner"}
+                    </span>
                   </div>
                   <div className="bg-slate-50 p-3.5 rounded-2xl">
                     <span className="text-slate-400 block font-medium mb-0.5">Target &amp; Deposit</span>

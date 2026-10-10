@@ -24,7 +24,7 @@ export type TransmissionType = 'AUTOMATIC' | 'MANUAL';
 
 export type FuelType = 'PETROL' | 'DIESEL' | 'HYBRID' | 'ELECTRIC';
 
-export type ListingStatus = 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'CLOSED' | 'EXPIRED';
+export type ListingStatus = 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'CLOSED' | 'EXPIRED' | 'HIRED';
 
 export type ApplicationStatus = 
   | 'SUBMITTED' 

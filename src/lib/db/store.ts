@@ -90,20 +90,8 @@ class MarketplaceStore {
   public async initStore() {
     this.loadFromStorage();
     try {
-      // Pull fresh data from Supabase as single source of truth
-      const [
-        remoteUsers,
-        remoteProfiles,
-        remoteDrivers,
-        remotePartners,
-        remoteVehicles,
-        remoteListings,
-        remoteApplications,
-        remoteAgreements,
-        remoteConversations,
-        remoteMessages,
-        remoteNotifications,
-      ] = await Promise.all([
+      // Pull fresh data from Supabase with safe settled promises
+      const results = await Promise.allSettled([
         dbService.getUsers(),
         dbService.getProfiles(),
         dbService.getDrivers(),
@@ -115,30 +103,75 @@ class MarketplaceStore {
         dbService.getConversations(),
         dbService.getMessages(),
         dbService.getNotifications(),
+        dbService.getVerificationDocuments(),
       ]);
 
-      if (remoteUsers.length > 0) this.users = remoteUsers;
-      if (remoteProfiles.length > 0) this.profiles = remoteProfiles;
-      if (remoteDrivers.length > 0) this.drivers = remoteDrivers;
-      if (remotePartners.length > 0) this.partners = remotePartners;
-      if (remoteVehicles.length > 0) this.vehicles = remoteVehicles;
-      if (remoteListings.length > 0) this.listings = remoteListings;
-      if (remoteApplications.length > 0) this.applications = remoteApplications;
-      if (remoteAgreements.length > 0) this.agreements = remoteAgreements;
+      const [
+        resUsers,
+        resProfiles,
+        resDrivers,
+        resPartners,
+        resVehicles,
+        resListings,
+        resApplications,
+        resAgreements,
+        resConversations,
+        resMessages,
+        resNotifications,
+        resVerificationDocs,
+      ] = results;
+
+      if (resUsers.status === 'fulfilled' && resUsers.value.length > 0) this.users = resUsers.value;
+      if (resProfiles.status === 'fulfilled' && resProfiles.value.length > 0) this.profiles = resProfiles.value;
+      if (resDrivers.status === 'fulfilled' && resDrivers.value.length > 0) this.drivers = resDrivers.value;
+      if (resPartners.status === 'fulfilled' && resPartners.value.length > 0) this.partners = resPartners.value;
+      if (resVehicles.status === 'fulfilled' && resVehicles.value.length > 0) this.vehicles = resVehicles.value;
+      if (resListings.status === 'fulfilled' && resListings.value.length > 0) this.listings = resListings.value;
+      if (resApplications.status === 'fulfilled' && resApplications.value.length > 0) this.applications = resApplications.value;
+      if (resAgreements.status === 'fulfilled' && resAgreements.value.length > 0) this.agreements = resAgreements.value;
+
+      // Cross-link vehicles and partner names into all listings
+      if (this.listings.length > 0) {
+        this.listings = this.listings.map(l => {
+          const matchedVeh = this.vehicles.find(v => v.id === l.vehicleId);
+          const matchedPartner = this.partners.find(p => p.id === l.partnerId || p.userId === l.partnerId);
+          const matchedProf = matchedPartner ? this.profiles.find(pr => pr.userId === matchedPartner.userId) : null;
+          return {
+            ...l,
+            vehicle: l.vehicle || matchedVeh,
+            partner: (l.partner && l.partner.fullName !== 'Vehicle Partner') ? l.partner : (matchedPartner ? {
+              id: matchedPartner.id,
+              fullName: matchedProf?.fullName || matchedPartner.companyName || 'Verified Fleet Owner',
+              ratingAvg: matchedPartner.ratingAvg || 5.0,
+              ratingCount: matchedPartner.ratingCount || 0,
+              isVerified: matchedPartner.identityVerified || false,
+            } : l.partner),
+          };
+        });
+      }
+
+      // Merge verification documents
+      if (resVerificationDocs?.status === 'fulfilled' && resVerificationDocs.value.length > 0) {
+        resVerificationDocs.value.forEach(rd => {
+          if (!this.verificationDocs.some(d => d.id === rd.id)) {
+            this.verificationDocs.unshift(rd);
+          }
+        });
+      }
 
       // Merge messages & conversations if found remotely
-      if (remoteConversations && remoteConversations.length > 0) {
-        remoteConversations.forEach(rc => {
+      if (resConversations.status === 'fulfilled' && resConversations.value.length > 0) {
+        resConversations.value.forEach(rc => {
           if (!this.conversations.some(c => c.id === rc.id)) this.conversations.push(rc);
         });
       }
-      if (remoteMessages && remoteMessages.length > 0) {
-        remoteMessages.forEach(rm => {
+      if (resMessages.status === 'fulfilled' && resMessages.value.length > 0) {
+        resMessages.value.forEach(rm => {
           if (!this.messages.some(m => m.id === rm.id)) this.messages.push(rm);
         });
       }
-      if (remoteNotifications && remoteNotifications.length > 0) {
-        remoteNotifications.forEach(rn => {
+      if (resNotifications.status === 'fulfilled' && resNotifications.value.length > 0) {
+        resNotifications.value.forEach(rn => {
           if (!this.notifications.some(n => n.id === rn.id)) this.notifications.unshift(rn);
         });
       }
@@ -525,6 +558,7 @@ class MarketplaceStore {
     };
 
     this.verificationDocs.unshift(doc);
+    dbService.createVerificationDocument(doc);
 
     this.addNotification({
       userId: params.userId,
@@ -803,6 +837,16 @@ class MarketplaceStore {
     this.notify();
   }
 
+  public async updateListing(id: string, updates: Partial<VehicleListing>) {
+    await dbService.updateListing(id, updates);
+    const listing = this.listings.find(l => l.id === id);
+    if (listing) {
+      Object.assign(listing, updates, { updatedAt: new Date().toISOString() });
+      this.notify();
+    }
+    return listing;
+  }
+
   // --- Vehicles ---
   public getVehiclesByPartner(partnerId: string) {
     return this.vehicles.filter(v => v.partnerId === partnerId);
@@ -839,6 +883,14 @@ class MarketplaceStore {
     const driverProfile = this.profiles.find(p => p.userId === driver?.userId);
 
     if (!listing || !driver) throw new Error("Listing or driver not found");
+
+    // Guard: Prevent duplicate application to the same listing
+    const existing = this.applications.find(
+      a => a.listingId === listingId && a.driverId === driverId && a.status !== 'WITHDRAWN'
+    );
+    if (existing) {
+      throw new Error("You have already submitted an application for this vehicle opportunity. Track your status in Driver Applications.");
+    }
 
     const matchBreakdown = matchingService.calculateMatch(driver, listing);
     
@@ -1018,6 +1070,26 @@ class MarketplaceStore {
     // Activate if both parties have signed
     if (agr.driverSignedAt && agr.partnerSignedAt) {
       agr.status = 'ACTIVE';
+
+      // Update vehicle status to ASSIGNED
+      const vehicle = this.vehicles.find(v => v.id === agr.vehicleId);
+      if (vehicle) {
+        vehicle.availabilityStatus = 'ASSIGNED';
+        dbService.updateVehicle(vehicle.id, { availabilityStatus: 'ASSIGNED' });
+      }
+
+      // Update listing status to HIRED
+      const listing = this.listings.find(l => l.id === agr.listingId || (agr.vehicleId && l.vehicleId === agr.vehicleId));
+      if (listing) {
+        listing.status = 'HIRED';
+      }
+
+      // Update application status
+      const app = this.applications.find(a => a.id === agr.applicationId);
+      if (app) {
+        app.status = 'ACCEPTED';
+        app.statusReason = 'Agreement signed by both parties. Active driving contract in progress.';
+      }
     } else if (agr.driverSignedAt && !agr.partnerSignedAt) {
       agr.status = 'PENDING_PARTNER';
     } else if (!agr.driverSignedAt && agr.partnerSignedAt) {

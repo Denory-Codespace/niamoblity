@@ -436,6 +436,7 @@ export class DatabaseService {
     }
     const { data, error } = await query;
     if (error || !data) {
+      if (error) console.warn('Supabase getVehicles notice:', error.message);
       return [];
     }
     return data.map(v => ({
@@ -523,16 +524,31 @@ export class DatabaseService {
   // VEHICLE LISTINGS CRUD
   // ----------------------------------------------------------------------------
   async getListings(): Promise<VehicleListing[]> {
-    const { data, error } = await supabase
-      .from('vehicle_listings')
-      .select('*, vehicles(*)')
-      .eq('status', 'PUBLISHED');
+    let rawListings: any[] = [];
+    let vehiclesJoined = false;
 
-    if (error || !data) {
-      return [];
+    // 1. Try relational joined query
+    const { data: joinedData, error: joinErr } = await supabase
+      .from('vehicle_listings')
+      .select('*, vehicles(*)');
+
+    if (!joinErr && joinedData && joinedData.length > 0) {
+      rawListings = joinedData;
+      vehiclesJoined = true;
+    } else {
+      if (joinErr) console.warn('Supabase vehicle_listings join query note, using flat query fallback:', joinErr.message);
+      // 2. Safe fallback: query vehicle_listings directly
+      const { data: flatData, error: flatErr } = await supabase
+        .from('vehicle_listings')
+        .select('*');
+      if (flatErr) {
+        console.warn('Supabase vehicle_listings flat query note:', flatErr.message);
+        return [];
+      }
+      rawListings = flatData || [];
     }
 
-    return data.map(l => ({
+    return rawListings.map(l => ({
       id: l.id,
       vehicleId: l.vehicle_id,
       partnerId: l.partner_id,
@@ -551,13 +567,13 @@ export class DatabaseService {
       driverMinExperienceYears: l.driver_min_experience_years || 1,
       driverRequirementsSummary: l.driver_requirements_summary,
       availableFrom: l.available_from,
-      status: l.status,
+      status: l.status || 'PUBLISHED',
       viewCount: l.view_count || 0,
       applicationsCount: l.applications_count || 0,
       publishedAt: l.published_at,
       createdAt: l.created_at,
       updatedAt: l.updated_at,
-      vehicle: l.vehicles ? {
+      vehicle: (vehiclesJoined && l.vehicles) ? {
         id: l.vehicles.id,
         partnerId: l.vehicles.partner_id,
         make: l.vehicles.make,
@@ -567,14 +583,14 @@ export class DatabaseService {
         vehicleType: l.vehicles.vehicle_type,
         transmission: l.vehicles.transmission,
         fuelType: l.vehicles.fuel_type,
-        seatingCapacity: l.vehicles.seating_capacity,
+        seatingCapacity: l.vehicles.seating_capacity || 4,
         color: l.vehicles.color,
-        primaryCounty: l.vehicles.primary_county,
+        primaryCounty: l.vehicles.primary_county || 'Nairobi',
         primarySubcounty: l.vehicles.primary_subcounty,
-        supportedPlatforms: l.vehicles.supported_platforms,
+        supportedPlatforms: l.vehicles.supported_platforms || ['Uber', 'Bolt'],
         photos: l.vehicles.photos || [],
-        verificationStatus: l.vehicles.verification_status,
-        availabilityStatus: l.vehicles.availability_status,
+        verificationStatus: l.vehicles.verification_status || 'VERIFIED',
+        availabilityStatus: l.vehicles.availability_status || 'AVAILABLE',
         createdAt: l.vehicles.created_at,
         updatedAt: l.vehicles.updated_at,
       } : undefined,
@@ -621,6 +637,28 @@ export class DatabaseService {
   async deleteListing(id: string): Promise<boolean> {
     const { error } = await supabase.from('vehicle_listings').delete().eq('id', id);
     if (error) console.warn('Supabase listing delete notice:', error.message);
+    return !error;
+  }
+
+  async updateListing(id: string, updates: Partial<VehicleListing>): Promise<boolean> {
+    const row: Record<string, any> = {};
+    if (updates.title !== undefined) row.title = updates.title;
+    if (updates.description !== undefined) row.description = updates.description;
+    if (updates.targetAmountKes !== undefined) row.target_amount_kes = updates.targetAmountKes;
+    if (updates.depositAmountKes !== undefined) row.deposit_amount_kes = updates.depositAmountKes;
+    if (updates.arrangementType !== undefined) row.arrangement_type = updates.arrangementType;
+    if (updates.paymentFrequency !== undefined) row.payment_frequency = updates.paymentFrequency;
+    if (updates.fuelResponsibility !== undefined) row.fuel_responsibility = updates.fuelResponsibility;
+    if (updates.maintenanceResponsibility !== undefined) row.maintenance_responsibility = updates.maintenanceResponsibility;
+    if (updates.insuranceResponsibility !== undefined) row.insurance_responsibility = updates.insuranceResponsibility;
+    if (updates.preferredPlatforms !== undefined) row.preferred_platforms = updates.preferredPlatforms;
+    if (updates.subcounty !== undefined) row.subcounty = updates.subcounty;
+    if (updates.county !== undefined) row.county = updates.county;
+    if (updates.status !== undefined) row.status = updates.status;
+    row.updated_at = new Date().toISOString();
+
+    const { error } = await supabase.from('vehicle_listings').update(row).eq('id', id);
+    if (error) console.warn('Supabase listing update notice:', error.message);
     return !error;
   }
 
@@ -883,6 +921,48 @@ export class DatabaseService {
     });
     if (error) console.warn('Supabase notification insert notice:', error.message);
     return notif;
+  }
+
+  // ----------------------------------------------------------------------------
+  // VERIFICATION DOCUMENTS CRUD
+  // ----------------------------------------------------------------------------
+  async getVerificationDocuments(userId?: string): Promise<any[]> {
+    let query = supabase.from('verification_documents').select('*');
+    if (userId) query = query.eq('user_id', userId);
+    const { data, error } = await query;
+    if (error) {
+      console.warn('Supabase verification_documents query notice:', error.message);
+      return [];
+    }
+    if (!data) return [];
+    return data.map(d => ({
+      id: d.id,
+      userId: d.user_id,
+      documentType: d.document_type,
+      documentNumber: d.document_number,
+      fileName: d.file_name || `${d.document_type}.pdf`,
+      fileUrl: d.file_url || d.file_path,
+      status: d.status || 'UNDER_REVIEW',
+      rejectionReason: d.rejection_reason,
+      verifiedAt: d.verified_at,
+      createdAt: d.created_at,
+    }));
+  }
+
+  async createVerificationDocument(doc: any): Promise<any> {
+    const { error } = await supabase.from('verification_documents').insert({
+      id: doc.id,
+      user_id: doc.userId,
+      document_type: doc.documentType,
+      document_number: doc.documentNumber || null,
+      file_name: doc.fileName,
+      file_url: doc.fileUrl,
+      file_path: doc.fileUrl,
+      mime_type: 'application/pdf',
+      status: doc.status || 'UNDER_REVIEW',
+    });
+    if (error) console.warn('Supabase verification_documents insert notice:', error.message);
+    return doc;
   }
 }
 

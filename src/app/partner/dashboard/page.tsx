@@ -267,7 +267,7 @@ export default function PartnerDashboardPage() {
                     <span className="text-[11px] text-slate-500 block mb-2">{v.primarySubcounty || "Nairobi"} &bull; {v.transmission}</span>
                     <Link href="/partner/vehicles">
                       <span className="text-xs font-bold text-blue-600 hover:text-blue-800">
-                        Edit details &rarr;
+                        View details &amp; documents &rarr;
                       </span>
                     </Link>
                   </div>
@@ -282,6 +282,141 @@ export default function PartnerDashboardPage() {
                   Register Your First Vehicle
                 </Button>
               </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Section: Uploaded Vehicle Compliance Documents Vault */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-soft space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-[#102A43]">Compliance &amp; Document Progress</h3>
+                <Badge variant="verified" size="sm" icon="shield">NTSA Standard</Badge>
+              </div>
+              <p className="text-xs text-slate-500">
+                Track verification status for vehicle logbooks, commercial PSV insurance, and NTSA inspection certificates.
+              </p>
+            </div>
+          </div>
+
+          {(() => {
+            const partnerDocs = marketplaceStore.verificationDocs.filter(
+              d => d.userId === currentProfile?.userId || d.userId === partnerProfile?.userId
+            );
+
+            if (partnerDocs.length === 0) {
+              return (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 space-y-2">
+                  <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p>No statutory documents uploaded yet. When you post a vehicle opportunity, your uploaded logbook and insurance will appear here with live review progress.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {partnerDocs.map(doc => {
+                  const isVerified = doc.status === 'VERIFIED';
+                  const isRejected = doc.status === 'REJECTED';
+                  const docLabel = (doc.documentType as string) === 'LOGBOOK' || (doc as any).documentType === 'VEHICLE_LOGBOOK'
+                    ? 'NTSA Vehicle Logbook'
+                    : (doc.documentType as string) === 'COMMERCIAL_INSURANCE' || (doc as any).documentType === 'INSURANCE' || (doc as any).documentType === 'INSURANCE_CERTIFICATE'
+                    ? 'Commercial PSV Insurance'
+                    : (doc.documentType as string) === 'INSPECTION_CERTIFICATE'
+                    ? 'NTSA Inspection Certificate'
+                    : doc.documentType.replace(/_/g, ' ');
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#102A43]">{docLabel}</span>
+                          <Badge
+                            variant={isVerified ? 'verified' : isRejected ? 'rejected' : 'yellow'}
+                            size="sm"
+                          >
+                            {isVerified ? 'Approved' : isRejected ? 'Action Needed' : 'In Review'}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate font-mono">
+                          File: {doc.fileName}
+                        </p>
+                        {doc.documentNumber && (
+                          <span className="text-[10px] text-slate-400 block font-mono">
+                            Ref: {doc.documentNumber}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">
+                          {isVerified ? '✅ Authenticated' : isRejected ? '❌ Resubmit required' : '⏳ Review in progress'}
+                        </span>
+                        {doc.fileUrl && (
+                          <a
+                            href={doc.fileUrl}
+                            download={doc.fileName}
+                            className="text-blue-600 font-bold hover:underline"
+                          >
+                            Download scan &rarr;
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Section: Active Opportunities & Remittance Targets (Edit Opportunity) */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-soft space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-xl font-bold text-[#102A43]">Live Opportunities &amp; Remittance Targets</h3>
+              <p className="text-xs text-slate-500">
+                View your active listings, daily remittance targets (hesabu), and edit terms anytime.
+              </p>
+            </div>
+          </div>
+
+          {listings.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {listings.map(l => (
+                <div key={l.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-[#102A43] truncate">{l.title}</span>
+                    <Badge variant={l.status === 'HIRED' ? 'match' : 'verified'} size="sm">
+                      {l.status === 'HIRED' ? 'Hired' : 'Active'}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-white p-2.5 rounded-xl border border-slate-200/60">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Daily Target</span>
+                      <span className="font-bold text-[#102A43]">{formatKes(l.targetAmountKes)}/day</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Deposit</span>
+                      <span className="font-bold text-slate-700">{formatKes(l.depositAmountKes)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-slate-500">{l.subcounty || 'Nairobi'} &bull; {l.arrangementType}</span>
+                    <Link href={`/vehicles?q=${encodeURIComponent(l.title)}`}>
+                      <span className="font-bold text-blue-600 hover:underline">Marketplace View &rarr;</span>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+              No live opportunities published yet.
             </div>
           )}
         </div>

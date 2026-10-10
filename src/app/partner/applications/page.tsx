@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
-import { Application, ApplicationStatus } from '@/types';
+import { Application, ApplicationStatus, Agreement } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatKes, formatDateEAT } from '@/lib/utils';
@@ -20,10 +20,12 @@ import {
   Smartphone,
   Lock,
   Search,
+  FileCheck2,
 } from 'lucide-react';
 import { ChatModal } from '@/components/chat/ChatModal';
 import { MpesaModal } from '@/components/payments/MpesaModal';
 import { DriverProfileModal } from '@/components/profile/DriverProfileModal';
+import { AgreementModal } from '@/components/agreement/AgreementModal';
 
 export default function PartnerApplicationsPage() {
   const { currentProfile, partnerProfile, currentUser, isAuthenticated, role } = useAuth();
@@ -36,6 +38,8 @@ export default function PartnerApplicationsPage() {
   const [unlockTargetAppId, setUnlockTargetAppId] = useState<string | null>(null);
   const [unlockedApps, setUnlockedApps] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [reviewingAgreement, setReviewingAgreement] = useState<Agreement | null>(null);
+  const [targetAppForAgreement, setTargetAppForAgreement] = useState<Application | null>(null);
 
   const partnerId = partnerProfile?.id;
   const userId = currentProfile?.userId;
@@ -87,6 +91,56 @@ export default function PartnerApplicationsPage() {
   const handleStatusChange = (appId: string, newStatus: ApplicationStatus, reason?: string) => {
     const reviewerId = currentProfile?.userId || '';
     marketplaceStore.updateApplicationStatus(appId, newStatus, reviewerId, reason);
+  };
+
+  const handleOpenAgreementModal = (app: Application) => {
+    let existingAgr = marketplaceStore.agreements.find(
+      a => a.applicationId === app.id || (a.listingId === app.listingId && a.driverId === app.driverId)
+    );
+
+    if (!existingAgr) {
+      const listing = app.listing || marketplaceStore.listings.find(l => l.id === app.listingId);
+      const driver = marketplaceStore.drivers.find(d => d.id === app.driverId);
+      const driverProf = marketplaceStore.profiles.find(p => p.userId === driver?.userId);
+      const partner = marketplaceStore.partners.find(p => p.id === app.partnerId);
+      const partnerProf = marketplaceStore.profiles.find(p => p.userId === partner?.userId);
+      const vehicle = listing?.vehicle || marketplaceStore.vehicles.find(v => v.id === listing?.vehicleId || v.partnerId === app.partnerId);
+
+      existingAgr = {
+        id: `AGR-${Date.now().toString().slice(-8)}`,
+        agreementNumber: `NIA-AGR-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        applicationId: app.id,
+        listingId: app.listingId,
+        driverId: app.driverId,
+        partnerId: app.partnerId,
+        vehicleId: listing?.vehicleId || vehicle?.id || app.partnerId,
+        arrangementType: listing?.arrangementType || 'DAILY_TARGET',
+        targetAmountKes: listing?.targetAmountKes || 3000,
+        depositAmountKes: listing?.depositAmountKes || 10000,
+        paymentFrequency: listing?.paymentFrequency || 'DAILY',
+        fuelTerms: listing?.fuelResponsibility ? `Fuel cost borne by ${listing.fuelResponsibility}.` : 'Fuel cost borne by DRIVER.',
+        maintenanceTerms: listing?.maintenanceResponsibility ? `Regular servicing borne by ${listing.maintenanceResponsibility}.` : 'Routine servicing by PARTNER.',
+        insuranceTerms: listing?.insuranceResponsibility ? `PSV Commercial Insurance maintained by ${listing.insuranceResponsibility}.` : 'PSV Comprehensive Insurance by PARTNER.',
+        operatingArea: listing ? `${listing.county} (${listing.subcounty || 'All Areas'})` : 'Nairobi County',
+        startDate: new Date().toISOString(),
+        termsAndConditions: 'Standard nia mobility commercial framework. Remittance via Safaricom M-PESA Daraja. Digital signature binding.',
+        status: 'PENDING_PARTNER',
+        vehicle: vehicle || listing?.vehicle,
+        driverName: app.driver?.fullName || driverProf?.fullName || 'Verified Driver',
+        partnerName: partnerProf?.fullName || currentProfile?.fullName || 'Verified Vehicle Partner',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    setTargetAppForAgreement(app);
+    setReviewingAgreement(existingAgr);
+  };
+
+  const handleAgreementSignedSuccess = () => {
+    if (targetAppForAgreement && targetAppForAgreement.status !== 'ACCEPTED') {
+      handleStatusChange(targetAppForAgreement.id, 'ACCEPTED', 'Agreement reviewed, terms confirmed, and signed by partner.');
+    }
   };
 
   const filteredApps = applications.filter(a => {
@@ -300,19 +354,23 @@ export default function PartnerApplicationsPage() {
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={() => handleStatusChange(app.id, 'ACCEPTED', 'Application accepted by partner.')}
-                      leftIcon={<CheckCircle2 className="w-4 h-4 text-[#FFF1B8]" />}
+                      onClick={() => handleOpenAgreementModal(app)}
+                      leftIcon={<FileCheck2 className="w-4 h-4 text-[#FFF1B8]" />}
                     >
-                      Accept &amp; Generate Agreement
+                      Review &amp; Issue Agreement
                     </Button>
                   )}
 
                   {app.status === 'ACCEPTED' && (
-                    <Link href="/partner/agreements">
-                      <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                        View Agreement Details
-                      </Button>
-                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenAgreementModal(app)}
+                      leftIcon={<FileCheck2 className="w-4 h-4 text-emerald-600" />}
+                      rightIcon={<ArrowRight className="w-4 h-4" />}
+                    >
+                      View Operating Agreement
+                    </Button>
                   )}
 
                   {app.status !== 'REJECTED' && app.status !== 'ACCEPTED' && (
@@ -373,6 +431,17 @@ export default function PartnerApplicationsPage() {
             onUnlockSuccess={() => {
               setUnlockedApps((prev) => ({ ...prev, [viewingDriverApp.id]: true }));
             }}
+          />
+        )}
+
+        {/* Operating Agreement Review & E-Signing Modal */}
+        {reviewingAgreement && (
+          <AgreementModal
+            isOpen={!!reviewingAgreement}
+            onClose={() => setReviewingAgreement(null)}
+            agreement={reviewingAgreement}
+            signerRole="PARTNER"
+            onSignedSuccess={handleAgreementSignedSuccess}
           />
         )}
       </div>
