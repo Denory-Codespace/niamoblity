@@ -49,6 +49,46 @@ ALTER TABLE IF EXISTS messages ADD COLUMN IF NOT EXISTS attachment_url  TEXT NUL
 ALTER TABLE IF EXISTS messages ADD COLUMN IF NOT EXISTS attachment_type VARCHAR(20) NULL;
 
 
+-- SECTION 1B: FIX FOREIGN KEY CONSTRAINTS (ALLOW CLEAN DELETION OF USERS & CARS)
+-- ============================================================
+
+DO $$
+BEGIN
+  -- 1. applications.last_status_changed_by -> ON DELETE SET NULL (fixes user deletion error)
+  ALTER TABLE IF EXISTS applications DROP CONSTRAINT IF EXISTS applications_last_status_changed_by_fkey;
+  ALTER TABLE IF EXISTS applications 
+    ADD CONSTRAINT applications_last_status_changed_by_fkey 
+    FOREIGN KEY (last_status_changed_by) REFERENCES users(id) ON DELETE SET NULL;
+
+  -- 2. agreements foreign keys -> ON DELETE CASCADE
+  ALTER TABLE IF EXISTS agreements DROP CONSTRAINT IF EXISTS agreements_application_id_fkey;
+  ALTER TABLE IF EXISTS agreements 
+    ADD CONSTRAINT agreements_application_id_fkey 
+    FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE;
+
+  ALTER TABLE IF EXISTS agreements DROP CONSTRAINT IF EXISTS agreements_listing_id_fkey;
+  ALTER TABLE IF EXISTS agreements 
+    ADD CONSTRAINT agreements_listing_id_fkey 
+    FOREIGN KEY (listing_id) REFERENCES vehicle_listings(id) ON DELETE CASCADE;
+
+  ALTER TABLE IF EXISTS agreements DROP CONSTRAINT IF EXISTS agreements_driver_id_fkey;
+  ALTER TABLE IF EXISTS agreements 
+    ADD CONSTRAINT agreements_driver_id_fkey 
+    FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE CASCADE;
+
+  ALTER TABLE IF EXISTS agreements DROP CONSTRAINT IF EXISTS agreements_partner_id_fkey;
+  ALTER TABLE IF EXISTS agreements 
+    ADD CONSTRAINT agreements_partner_id_fkey 
+    FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE;
+
+  ALTER TABLE IF EXISTS agreements DROP CONSTRAINT IF EXISTS agreements_vehicle_id_fkey;
+  ALTER TABLE IF EXISTS agreements 
+    ADD CONSTRAINT agreements_vehicle_id_fkey 
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+
 -- SECTION 2: ENSURE ALL TABLES EXIST
 -- ============================================================
 

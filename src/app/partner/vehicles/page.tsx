@@ -9,9 +9,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
-import { Vehicle, FuelType, TransmissionType } from '@/types';
+import { Vehicle, VehicleListing, FuelType, TransmissionType } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { EditOpportunityModal } from '@/components/marketplace/EditOpportunityModal';
 import {
   Car,
   Plus,
@@ -32,12 +33,14 @@ import {
   FileText,
   ShieldCheck,
   Download,
+  Sliders,
 } from 'lucide-react';
 
 export default function PartnerVehiclesPage() {
   const { partnerProfile, currentUser } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [editingListing, setEditingListing] = useState<VehicleListing | null>(null);
   const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null);
   const [viewPhotoIndex, setViewPhotoIndex] = useState(0);
   const [viewingDocUrl, setViewingDocUrl] = useState<{ url: string; name: string } | null>(null);
@@ -329,6 +332,21 @@ export default function PartnerVehiclesPage() {
                   >
                     Edit
                   </Button>
+                  {(() => {
+                    const l = marketplaceStore.listings.find(list => list.vehicleId === v.id);
+                    if (!l) return null;
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingListing(l)}
+                        leftIcon={<Sliders className="w-3.5 h-3.5 text-amber-600" />}
+                        className="text-amber-800 border-amber-200 bg-amber-50/50 hover:bg-amber-100/60"
+                      >
+                        Terms
+                      </Button>
+                    );
+                  })()}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -527,7 +545,7 @@ export default function PartnerVehiclesPage() {
                   })()}
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                   <Button
                     variant="outline"
                     size="sm"
@@ -535,12 +553,27 @@ export default function PartnerVehiclesPage() {
                     leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                     className="flex-1"
                   >
-                    Edit Details
+                    Edit Specs
                   </Button>
+                  {(() => {
+                    const l = marketplaceStore.listings.find(list => list.vehicleId === viewingVehicle.id);
+                    if (!l) return null;
+                    return (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => { setEditingListing(l); setViewingVehicle(null); }}
+                        leftIcon={<Sliders className="w-3.5 h-3.5 text-amber-300" />}
+                        className="flex-1"
+                      >
+                        Edit Opportunity
+                      </Button>
+                    );
+                  })()}
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-rose-600 hover:bg-rose-50 flex-1"
+                    className="text-rose-600 hover:bg-rose-50"
                     disabled={isDeletingId === viewingVehicle.id}
                     onClick={() => { handleDelete(viewingVehicle.id); setViewingVehicle(null); }}
                     leftIcon={<Trash2 className="w-3.5 h-3.5" />}
@@ -759,6 +792,20 @@ export default function PartnerVehiclesPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Opportunity Terms Edit Modal */}
+        {editingListing && (
+          <EditOpportunityModal
+            isOpen={!!editingListing}
+            onClose={() => setEditingListing(null)}
+            listing={editingListing}
+            onUpdated={() => {
+              if (partnerId) {
+                setVehicles(marketplaceStore.vehicles.filter((v) => v.partnerId === partnerId));
+              }
+            }}
+          />
         )}
       </div>
     </div>

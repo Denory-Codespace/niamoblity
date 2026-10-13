@@ -7,6 +7,8 @@ import { marketplaceStore } from '@/lib/db/store';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatKes, formatDateEAT } from '@/lib/utils';
+import { VehicleListing } from '@/types';
+import { EditOpportunityModal } from '@/components/marketplace/EditOpportunityModal';
 import {
   Car,
   Users,
@@ -16,6 +18,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Sparkles,
+  Sliders,
 } from 'lucide-react';
 
 export default function PartnerDashboardPage() {
@@ -24,6 +27,7 @@ export default function PartnerDashboardPage() {
   const [listings, setListings] = useState(marketplaceStore.listings);
   const [applications, setApplications] = useState(marketplaceStore.applications);
   const [agreements, setAgreements] = useState(marketplaceStore.agreements);
+  const [editingListing, setEditingListing] = useState<VehicleListing | null>(null);
 
   const partnerId = partnerProfile?.id;
 
@@ -405,11 +409,20 @@ export default function PartnerDashboardPage() {
                       <span className="font-bold text-slate-700">{formatKes(l.depositAmountKes)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs pt-1">
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50 mt-2">
                     <span className="text-slate-500">{l.subcounty || 'Nairobi'} &bull; {l.arrangementType}</span>
-                    <Link href={`/vehicles?q=${encodeURIComponent(l.title)}`}>
-                      <span className="font-bold text-blue-600 hover:underline">Marketplace View &rarr;</span>
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingListing(l)}
+                        className="inline-flex items-center gap-1 font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 transition-colors"
+                      >
+                        <Sliders className="w-3 h-3" />
+                        Edit Terms
+                      </button>
+                      <Link href={`/vehicles?q=${encodeURIComponent(l.title)}`}>
+                        <span className="font-bold text-blue-600 hover:underline">View &rarr;</span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -420,6 +433,20 @@ export default function PartnerDashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Edit Opportunity Modal */}
+        {editingListing && (
+          <EditOpportunityModal
+            isOpen={!!editingListing}
+            onClose={() => setEditingListing(null)}
+            listing={editingListing}
+            onUpdated={() => {
+              if (partnerId) {
+                setListings(marketplaceStore.listings.filter(l => l.partnerId === partnerId));
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );

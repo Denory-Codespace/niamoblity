@@ -5,6 +5,7 @@
 
 import { supabase } from '../supabase/client';
 import { generateUUID } from '@/lib/utils';
+import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import {
   User,
   Profile,
@@ -38,18 +39,18 @@ export class DatabaseService {
     const profileId = generateUUID();
     let supabaseSynced = true;
 
-    // 1. Insert into users (including password if provided)
+    // 1. Hash password with SHA-256 + salt before saving to database
+    const hashedPassword = params.password ? await hashPassword(params.password.trim()) : undefined;
+
     const userInsertData: any = {
       id: userId,
       email: params.email.trim().toLowerCase(),
       phone: params.phone.trim(),
       role: params.role,
+      password: hashedPassword,
       is_active: true,
       is_verified: true,
     };
-    if (params.password) {
-      userInsertData.password = params.password.trim();
-    }
 
     const { error: userError } = await supabase.from('users').insert(userInsertData);
 
@@ -201,13 +202,20 @@ export class DatabaseService {
 
     const u = usersData[0];
 
-    // Password validation if password is set on the account
+    // Password validation using salt:hash verification
     if (u.password) {
       if (!password || !password.trim()) {
         throw new Error('Please enter your password to sign in.');
       }
-      if (u.password !== password.trim()) {
+      const isValid = await verifyPassword(password.trim(), u.password);
+      if (!isValid) {
         throw new Error('Incorrect password. Please verify your credentials and try again.');
+      }
+
+      // Auto-upgrade legacy plaintext password in background
+      if (!u.password.includes(':')) {
+        const upgraded = await hashPassword(password.trim());
+        supabase.from('users').update({ password: upgraded }).eq('id', u.id).then();
       }
     }
 
@@ -216,7 +224,7 @@ export class DatabaseService {
       email: u.email,
       phone: u.phone,
       role: u.role,
-      password: u.password,
+      password: undefined, // Never expose hashed password in client session
       isActive: u.is_active,
       isVerified: u.is_verified,
       createdAt: u.created_at,
@@ -345,35 +353,57 @@ export class DatabaseService {
     return !profErr;
   }
 
-  async deleteUserAccount(userId: string, role: UserRole): Promise<boolean> {
+  async deleteUserAccount(userId: string, role?: UserRole): Promise<boolean> {
     try {
-      // 1. Delete applications referencing this user
-      if (role === 'DRIVER') {
-        const { data: driver } = await supabase.from('drivers').select('id').eq('user_id', userId).limit(1);
-        if (driver && driver[0]) {
-          await supabase.from('applications').delete().eq('driver_id', driver[0].id);
-          await supabase.from('agreements').delete().eq('driver_id', driver[0].id);
-          await supabase.from('drivers').delete().eq('id', driver[0].id);
-        }
-      } else if (role === 'PARTNER') {
-        const { data: partner } = await supabase.from('partners').select('id').eq('user_id', userId).limit(1);
-        if (partner && partner[0]) {
-          await supabase.from('applications').delete().eq('partner_id', partner[0].id);
-          await supabase.from('agreements').delete().eq('partner_id', partner[0].id);
-          await supabase.from('vehicle_listings').delete().eq('partner_id', partner[0].id);
-          await supabase.from('vehicles').delete().eq('partner_id', partner[0].id);
-          await supabase.from('partners').delete().eq('id', partner[0].id);
-        }
+      // 1. Unlink any application where this user was last_status_changed_by
+      await supabase.from('applications').update({ last_status_changed_by: null }).eq('last_status_changed_by', userId);
+
+      // 2. Find driver or partner records
+      const { data: driverRows } = await supabase.from('drivers').select('id').eq('user_id', userId);
+      const driverId = driverRows?.[0]?.id;
+
+      const { data: partnerRows } = await supabase.from('partners').select('id').eq('user_id', userId);
+      const partnerId = partnerRows?.[0]?.id;
+
+      // 3. Clean up driver relations if user is/was a driver
+      if (driverId) {
+        await supabase.from('agreements').delete().eq('driver_id', driverId);
+        await supabase.from('applications').delete().eq('driver_id', driverId);
+        await supabase.from('drivers').delete().eq('id', driverId);
       }
 
-      // 2. Delete profile, notifications, conversations, messages
-      await supabase.from('profiles').delete().eq('user_id', userId);
-      await supabase.from('notifications').delete().eq('user_id', userId);
+      // 4. Clean up partner relations if user is/was a partner
+      if (partnerId) {
+        // Find partner's vehicles to clean related agreements
+        const { data: partnerVehicles } = await supabase.from('vehicles').select('id').eq('partner_id', partnerId);
+        const vehIds = partnerVehicles?.map(v => v.id) || [];
+        for (const vId of vehIds) {
+          await supabase.from('agreements').delete().eq('vehicle_id', vId);
+        }
 
-      // 3. Delete the user row
+        // Delete agreements & applications referencing partner
+        await supabase.from('agreements').delete().eq('partner_id', partnerId);
+        await supabase.from('applications').delete().eq('partner_id', partnerId);
+        await supabase.from('vehicle_listings').delete().eq('partner_id', partnerId);
+        await supabase.from('vehicles').delete().eq('partner_id', partnerId);
+        await supabase.from('partners').delete().eq('id', partnerId);
+      }
+
+      // 5. Clean verification documents, transactions, notifications, messages & conversations
+      await supabase.from('verification_documents').delete().eq('user_id', userId);
+      await supabase.from('payment_transactions').delete().eq('user_id', userId);
+      await supabase.from('notifications').delete().eq('user_id', userId);
+      await supabase.from('messages').delete().eq('sender_id', userId);
+      await supabase.from('conversations').delete().or(`driver_id.eq.${userId},partner_id.eq.${userId}`);
+      await supabase.from('profiles').delete().eq('user_id', userId);
+
+      // 6. Finally delete the user row
       const { error } = await supabase.from('users').delete().eq('id', userId);
-      if (error) console.warn('Supabase user delete notice:', error.message);
-      return !error;
+      if (error) {
+        console.warn('Supabase user delete error:', error.message);
+        return false;
+      }
+      return true;
     } catch (e) {
       console.warn('Account deletion error:', e);
       return false;

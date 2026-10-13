@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { NAIROBI_SUBCOUNTIES } from '@/lib/utils';
-import { Car, Users, CheckCircle2, AlertCircle, ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
+import { otpService } from '@/lib/auth/otp-service';
+import { Car, Users, CheckCircle2, AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
 import { UserRole } from '@/types';
 
 export default function RegisterPage() {
@@ -25,10 +26,52 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // OTP Verification state
+  const [step, setStep] = useState<'DETAILS' | 'OTP'>('DETAILS');
+  const [otpCode, setOtpCode] = useState('');
+  const [previewOtp, setPreviewOtp] = useState<string | null>(null);
+  const [otpCountdown, setOtpCountdown] = useState(60);
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || password.length < 6) {
       setErrorMessage('Password must be at least 6 characters.');
+      return;
+    }
+    if (!phone || phone.length < 9) {
+      setErrorMessage('Please provide a valid Kenyan phone number (e.g. 0712345678).');
+      return;
+    }
+    if (!email || !email.includes('@')) {
+      setErrorMessage('Please provide a valid email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await otpService.sendSignupOtp({ email, phone, fullName });
+      setPreviewOtp(res.previewCode);
+      setStep('OTP');
+      setOtpCountdown(60);
+      setIsSubmitting(false);
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setErrorMessage('Could not send verification code. Please check your credentials.');
+    }
+  };
+
+  const handleVerifyOtpAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.length < 6) {
+      setErrorMessage('Please enter the complete 6-digit verification code.');
+      return;
+    }
+
+    const verification = otpService.verifySignupOtp(email, otpCode);
+    if (!verification.valid) {
+      setErrorMessage(verification.message || 'Invalid verification code.');
       return;
     }
 
@@ -57,6 +100,17 @@ export default function RegisterPage() {
     } catch (err: any) {
       setIsSubmitting(false);
       setErrorMessage(err.message || 'Registration failed. Please try again.');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (otpCountdown > 0) return;
+    try {
+      const res = await otpService.sendSignupOtp({ email, phone, fullName });
+      setPreviewOtp(res.previewCode);
+      setOtpCountdown(60);
+    } catch (e) {
+      setErrorMessage('Failed to resend code.');
     }
   };
 
@@ -122,7 +176,84 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {step === 'OTP' ? (
+            <div className="space-y-5 animate-in fade-in duration-300">
+              <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
+                  <Mail className="w-4 h-4 text-emerald-600" />
+                  <span>Verification Code Dispatched 🇰🇪</span>
+                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  We sent a 6-digit one-time PIN to <strong>{email}</strong> and SMS notification to <strong>{phone}</strong>.
+                </p>
+                {previewOtp && (
+                  <div className="pt-1 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Demo Code: <strong className="font-mono text-emerald-700 font-bold">{previewOtp}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setOtpCode(previewOtp)}
+                      className="text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition-colors"
+                    >
+                      Quick Auto-Fill
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleVerifyOtpAndRegister} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Enter 6-Digit Verification PIN
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 583920"
+                    autoFocus
+                    className="w-full text-center tracking-[0.4em] text-lg font-black font-mono p-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#102A43] focus:border-[#102A43]"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block text-center">
+                    Check your spam folder or console if email delivery is delayed.
+                  </span>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="w-full justify-center"
+                  isLoading={isSubmitting}
+                  leftIcon={<ShieldCheck className="w-4 h-4 text-[#FFF1B8]" />}
+                >
+                  Verify &amp; Activate Account
+                </Button>
+
+                <div className="flex items-center justify-between text-xs pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('DETAILS')}
+                    className="text-slate-500 hover:text-slate-700 text-xs font-semibold"
+                  >
+                    &larr; Edit Details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={otpCountdown > 0}
+                    className="text-blue-600 hover:text-blue-800 font-bold disabled:text-slate-400 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    {otpCountdown > 0 ? `Resend in ${otpCountdown}s` : 'Resend Code'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Full Legal Name</label>
               <input
@@ -234,9 +365,10 @@ export default function RegisterPage() {
               isLoading={isSubmitting}
               leftIcon={<CheckCircle2 className="w-4 h-4 text-[#FFF1B8]" />}
             >
-              Create {role === 'DRIVER' ? 'Driver' : 'Partner'} Account
+              Continue to Verification &rarr;
             </Button>
           </form>
+          )}
 
           <div className="text-center pt-2">
             <p className="text-xs text-slate-500">

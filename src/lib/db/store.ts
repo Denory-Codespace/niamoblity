@@ -25,6 +25,7 @@ import {
 import { matchingService } from '../matching/matching-service';
 import { dbService } from './db-service';
 import { supabase } from '../supabase/client';
+import { generateUUID } from '@/lib/utils';
 
 class MarketplaceStore {
   public users: User[] = [];
@@ -688,33 +689,38 @@ class MarketplaceStore {
   }
 
   // --- Delete User Account ---
-  public async deleteUserAccount(userId: string, role: UserRole) {
-    // Remove all local data for this user
-    await dbService.deleteUserAccount(userId, role);
+  public async deleteUserAccount(userId: string, role?: UserRole) {
+    const targetRole = role || this.users.find(u => u.id === userId)?.role || 'DRIVER';
+    await dbService.deleteUserAccount(userId, targetRole);
 
     this.users = this.users.filter(u => u.id !== userId);
     this.profiles = this.profiles.filter(p => p.userId !== userId);
     this.notifications = this.notifications.filter(n => n.userId !== userId);
+    this.verificationDocs = this.verificationDocs.filter(d => d.userId !== userId);
+    this.conversations = this.conversations.filter(c => c.driverId !== userId && c.partnerId !== userId);
 
-    if (role === 'DRIVER') {
-      const driver = this.drivers.find(d => d.userId === userId);
-      if (driver) {
-        this.applications = this.applications.filter(a => a.driverId !== driver.id);
-        this.agreements = this.agreements.filter(a => a.driverId !== driver.id);
-        this.drivers = this.drivers.filter(d => d.userId !== userId);
-      }
-    } else if (role === 'PARTNER') {
-      const partner = this.partners.find(p => p.userId === userId);
-      if (partner) {
-        this.applications = this.applications.filter(a => a.partnerId !== partner.id);
-        this.agreements = this.agreements.filter(a => a.partnerId !== partner.id);
-        this.vehicles = this.vehicles.filter(v => v.partnerId !== partner.id);
-        this.listings = this.listings.filter(l => l.partnerId !== partner.id);
-        this.partners = this.partners.filter(p => p.userId !== userId);
-      }
+    const driver = this.drivers.find(d => d.userId === userId || d.id === userId);
+    if (driver) {
+      this.applications = this.applications.filter(a => a.driverId !== driver.id);
+      this.agreements = this.agreements.filter(a => a.driverId !== driver.id);
+      this.drivers = this.drivers.filter(d => d.userId !== userId && d.id !== userId);
     }
 
-    // Log out
+    const partner = this.partners.find(p => p.userId === userId || p.id === userId);
+    if (partner) {
+      const partnerVehIds = this.vehicles.filter(v => v.partnerId === partner.id).map(v => v.id);
+      this.agreements = this.agreements.filter(a => a.partnerId !== partner.id && !partnerVehIds.includes(a.vehicleId));
+      this.applications = this.applications.filter(a => a.partnerId !== partner.id);
+      this.listings = this.listings.filter(l => l.partnerId !== partner.id);
+      this.vehicles = this.vehicles.filter(v => v.partnerId !== partner.id);
+      this.partners = this.partners.filter(p => p.userId !== userId && p.id !== userId);
+    }
+
+    this.notify();
+    return true;
+  }
+
+  public logout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('nia_current_user_id');
       localStorage.removeItem('nia_push_granted');
@@ -870,11 +876,7 @@ class MarketplaceStore {
     return vehicle;
   }
 
-  public async deleteVehicle(id: string) {
-    await dbService.deleteVehicle(id);
-    this.vehicles = this.vehicles.filter(v => v.id !== id);
-    this.notify();
-  }
+  // deleteVehicle defined below at ~L1257 with full listing cleanup
 
   // --- Applications ---
   public async applyToListing(listingId: string, driverId: string, coverNote: string) {
@@ -1170,11 +1172,89 @@ class MarketplaceStore {
     this.notify();
   }
 
-  // --- Monetization & M-Pesa Unlocks ---
+  // --- Monetization & M-Pesa Unlocks (Pay Once for Chat or Agreement) ---
   public unlockedContacts: Record<string, boolean> = {};
+  public unlockedEngagements: Record<string, boolean> = {};
 
   public unlockApplicationContact(applicationId: string) {
     this.unlockedContacts[applicationId] = true;
+    this.notify();
+  }
+
+  public isEngagementUnlocked(driverId: string, partnerId: string): boolean {
+    if (!driverId || !partnerId) return false;
+    const key = `${driverId}_${partnerId}`;
+    if (this.unlockedEngagements[key]) return true;
+
+    // Check localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('nia_unlocked_engagements');
+        if (stored) {
+          const map = JSON.parse(stored);
+          if (map[key]) return true;
+        }
+      } catch (e) {}
+    }
+    return false;
+  }
+
+  public unlockEngagement(driverId: string, partnerId: string, receiptNumber?: string) {
+    const key = `${driverId}_${partnerId}`;
+    this.unlockedEngagements[key] = true;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('nia_unlocked_engagements');
+        const map = stored ? JSON.parse(stored) : {};
+        map[key] = true;
+        localStorage.setItem('nia_unlocked_engagements', JSON.stringify(map));
+      } catch (e) {}
+    }
+
+    // Record payment transaction
+    supabase.from('payment_transactions').insert({
+      id: generateUUID(),
+      user_id: driverId,
+      user_role: 'DRIVER',
+      service_type: 'ENGAGEMENT_UNLOCK',
+      reference_id: partnerId,
+      amount_kes: 99,
+      phone_number: '254700000000',
+      mpesa_receipt_number: receiptNumber || `NMP${Date.now().toString().slice(-6)}`,
+      status: 'COMPLETED',
+    }).then();
+
+    this.notify();
+  }
+
+  public async updateAgreement(id: string, updates: Partial<Agreement>) {
+    const agr = this.agreements.find(a => a.id === id);
+    if (!agr) return null;
+
+    Object.assign(agr, updates, { updatedAt: new Date().toISOString() });
+
+    // Sync to Supabase
+    supabase.from('agreements').update({
+      target_amount_kes: agr.targetAmountKes,
+      deposit_amount_kes: agr.depositAmountKes,
+      payment_frequency: agr.paymentFrequency,
+      operating_area: agr.operatingArea,
+      fuel_terms: agr.fuelTerms,
+      maintenance_terms: agr.maintenanceTerms,
+      insurance_terms: agr.insuranceTerms,
+      terms_and_conditions: agr.termsAndConditions,
+      updated_at: agr.updatedAt,
+    }).eq('id', id).then();
+
+    this.notify();
+    return agr;
+  }
+
+  public async deleteVehicle(id: string) {
+    await dbService.deleteVehicle(id);
+    this.vehicles = this.vehicles.filter(v => v.id !== id);
+    this.listings = this.listings.filter(l => l.vehicleId !== id);
     this.notify();
   }
 

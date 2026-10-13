@@ -214,11 +214,15 @@ export default function NewListingPage() {
       });
 
       setIsSubmitting(false);
+      // Hard redirect to vehicles catalog and trigger toast
       router.push('/partner/vehicles');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/partner/vehicles';
+      }
     } catch (err: any) {
-      console.error(err);
+      console.error('Vehicle publish error:', err);
       setIsSubmitting(false);
-      setErrorMessage(err.message || 'Failed to publish vehicle listing.');
+      setErrorMessage(err.message || 'Failed to publish vehicle listing. Please check required fields.');
     }
   };
 
