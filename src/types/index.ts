@@ -358,3 +358,18 @@ export interface PlatformStats {
   averageMatchScore: number;
   disputesCount: number;
 }
+
+export interface MpesaTransaction {
+  id: string;
+  userId: string;
+  userRole: 'DRIVER' | 'PARTNER';
+  serviceType: string;
+  amountKes: number;
+  phoneNumber: string;
+  mpesaReceiptNumber: string;
+  referenceId?: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  description: string;
+  createdAt: string;
+}
+

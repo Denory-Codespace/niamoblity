@@ -91,6 +91,9 @@ export default function RegisterPage() {
         companyName: role === 'PARTNER' ? companyName : undefined,
       });
 
+      // Dispatch official Nia Mobility welcome email
+      otpService.sendWelcomeEmail({ email, fullName, role: role as 'DRIVER' | 'PARTNER' });
+
       setIsSubmitting(false);
       if (role === 'PARTNER') {
         router.push('/partner/dashboard');

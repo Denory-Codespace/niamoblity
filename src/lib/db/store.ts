@@ -21,6 +21,7 @@ import {
   ApplicationStatus,
   AgreementStatus,
   UserRole,
+  MpesaTransaction,
 } from '@/types';
 import { matchingService } from '../matching/matching-service';
 import { dbService } from './db-service';
@@ -40,6 +41,7 @@ class MarketplaceStore {
   public messages: Message[] = [];
   public verificationDocs: VerificationDocument[] = [];
   public notifications: NotificationItem[] = [];
+  public transactions: MpesaTransaction[] = [];
   public savedListingIds: string[] = [];
 
   private listeners: Set<() => void> = new Set();
@@ -61,7 +63,7 @@ class MarketplaceStore {
     };
   }
 
-  private notify() {
+  public notify() {
     if (typeof window !== 'undefined') {
       this.saveToStorage();
     }
@@ -289,6 +291,7 @@ class MarketplaceStore {
       localStorage.setItem('nia_messages', JSON.stringify(this.messages));
       localStorage.setItem('nia_notifications', JSON.stringify(this.notifications));
       localStorage.setItem('nia_verifications', JSON.stringify(this.verificationDocs));
+      localStorage.setItem('nia_transactions', JSON.stringify(this.transactions));
       localStorage.setItem('nia_saved', JSON.stringify(this.savedListingIds));
     } catch (e) {
       console.warn('Storage save error:', e);
@@ -321,6 +324,8 @@ class MarketplaceStore {
       if (notifs) this.notifications = JSON.parse(notifs);
       const verifs = localStorage.getItem('nia_verifications');
       if (verifs) this.verificationDocs = JSON.parse(verifs);
+      const tx = localStorage.getItem('nia_transactions');
+      if (tx) this.transactions = JSON.parse(tx);
       const s = localStorage.getItem('nia_saved');
       if (s) this.savedListingIds = JSON.parse(s);
     } catch (e) {
@@ -718,6 +723,34 @@ class MarketplaceStore {
 
     this.notify();
     return true;
+  }
+
+  // --- M-Pesa Transaction Tracking ---
+  public recordTransaction(tx: Omit<MpesaTransaction, 'id' | 'createdAt'>): MpesaTransaction {
+    const newTx: MpesaTransaction = {
+      ...tx,
+      id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.transactions.unshift(newTx);
+    this.notify();
+    this.broadcastEvent('TRANSACTION_RECORDED', newTx);
+    return newTx;
+  }
+
+  public getTransactions(filter?: { userId?: string; role?: string }): MpesaTransaction[] {
+    if (!filter) return this.transactions;
+    return this.transactions.filter(t => {
+      if (filter.userId && t.userId !== filter.userId) return false;
+      if (filter.role && t.userRole !== filter.role) return false;
+      return true;
+    });
+  }
+
+  public getTotalRevenueKes(): number {
+    return this.transactions
+      .filter(t => t.status === 'COMPLETED')
+      .reduce((acc, t) => acc + (t.amountKes || 0), 0);
   }
 
   public logout() {

@@ -994,6 +994,19 @@ export class DatabaseService {
     if (error) console.warn('Supabase verification_documents insert notice:', error.message);
     return doc;
   }
+
+  async updateUserPassword(userId: string, newPlaintext: string): Promise<boolean> {
+    try {
+      const { hashPassword } = await import('../auth/password');
+      const hashedPassword = await hashPassword(newPlaintext);
+      const { error } = await supabase.from('users').update({ password_hash: hashedPassword }).eq('id', userId);
+      if (error) console.warn('Supabase update password notice:', error.message);
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 export const dbService = new DatabaseService();
+

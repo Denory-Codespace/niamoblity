@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { marketplaceStore } from '@/lib/db/store';
+import { dbService } from '@/lib/db/db-service';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { formatDateEAT } from '@/lib/utils';
+import { formatDateEAT, formatKes } from '@/lib/utils';
+import { MpesaTransaction } from '@/types';
 import {
   ShieldCheck,
   Users,
@@ -23,9 +25,12 @@ import {
   Search,
   LayoutDashboard,
   RefreshCw,
+  DollarSign,
+  Layers,
+  Key,
 } from 'lucide-react';
 
-type AdminTab = 'overview' | 'users' | 'vehicles' | 'kyc' | 'matching';
+type AdminTab = 'overview' | 'users' | 'vehicles' | 'listings' | 'finance' | 'kyc' | 'matching';
 
 export default function AdminDashboardPage() {
   const { currentProfile } = useAuth();
@@ -34,10 +39,13 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState(marketplaceStore.users);
   const [vehicles, setVehicles] = useState(marketplaceStore.vehicles);
   const [listings, setListings] = useState(marketplaceStore.listings);
+  const [transactions, setTransactions] = useState<MpesaTransaction[]>(marketplaceStore.transactions);
   const [verificationDocs, setVerificationDocs] = useState(marketplaceStore.verificationDocs);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [vehicleSearch, setVehicleSearch] = useState('');
+  const [listingSearch, setListingSearch] = useState('');
+  const [financeSearch, setFinanceSearch] = useState('');
   const [isDeletingUserId, setIsDeletingUserId] = useState<string | null>(null);
   const [isDeletingVehicleId, setIsDeletingVehicleId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -50,6 +58,7 @@ export default function AdminDashboardPage() {
       setUsers([...marketplaceStore.users]);
       setVehicles([...marketplaceStore.vehicles]);
       setListings([...marketplaceStore.listings]);
+      setTransactions([...marketplaceStore.transactions]);
       setVerificationDocs([...marketplaceStore.verificationDocs]);
     });
     return unsubscribe;
@@ -140,6 +149,8 @@ export default function AdminDashboardPage() {
     { id: 'overview' as AdminTab, label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'users' as AdminTab, label: `Users (${users.length})`, icon: <Users className="w-4 h-4" /> },
     { id: 'vehicles' as AdminTab, label: `Fleet (${vehicles.length})`, icon: <Car className="w-4 h-4" /> },
+    { id: 'listings' as AdminTab, label: `Listings (${listings.length})`, icon: <Layers className="w-4 h-4" /> },
+    { id: 'finance' as AdminTab, label: `M-Pesa (${transactions.length})`, icon: <DollarSign className="w-4 h-4" /> },
     { id: 'kyc' as AdminTab, label: `KYC (${verificationDocs.filter(d => d.status === 'UNDER_REVIEW').length})`, icon: <FileCheck2 className="w-4 h-4" /> },
     { id: 'matching' as AdminTab, label: 'Algorithm', icon: <Sliders className="w-4 h-4" /> },
   ];
@@ -320,7 +331,44 @@ export default function AdminDashboardPage() {
                           {u.createdAt && ` · Joined: ${formatDateEAT(u.createdAt)}`}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        {/* Superadmin Role Changer */}
+                        <select
+                          value={u.role}
+                          onChange={async (e) => {
+                            const newRole = e.target.value as any;
+                            u.role = newRole;
+                            marketplaceStore.notify();
+                            showNotification('success', `User ${u.email} role updated to ${newRole}`);
+                          }}
+                          className="text-xs bg-white border border-slate-200 rounded-lg px-2 py-1 font-semibold text-slate-700"
+                        >
+                          <option value="DRIVER">DRIVER</option>
+                          <option value="PARTNER">PARTNER</option>
+                          <option value="ADMIN">ADMIN</option>
+                        </select>
+
+                        {/* Superadmin Password Reset */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-700 border-blue-200 bg-blue-50/50 hover:bg-blue-100/50"
+                          onClick={async () => {
+                            const newPass = prompt(`Set new temporary password for ${u.email}:`, 'Nia2026!');
+                            if (newPass && newPass.trim().length >= 6) {
+                              const success = await dbService.updateUserPassword(u.id, newPass.trim());
+                              if (success) {
+                                showNotification('success', `Password for ${u.email} updated successfully!`);
+                              } else {
+                                showNotification('error', `Failed to update password for ${u.email}`);
+                              }
+                            }
+                          }}
+                          leftIcon={<Key className="w-3.5 h-3.5" />}
+                        >
+                          Reset Pass
+                        </Button>
+
                         <Button
                           variant="ghost"
                           size="sm"
@@ -329,7 +377,7 @@ export default function AdminDashboardPage() {
                           onClick={() => handleDeleteUser(u.id, u.role)}
                           leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                         >
-                          {isDeletingUserId === u.id ? 'Deleting...' : 'Delete User'}
+                          {isDeletingUserId === u.id ? 'Deleting...' : 'Delete'}
                         </Button>
                       </div>
                     </div>
@@ -496,6 +544,171 @@ export default function AdminDashboardPage() {
                 <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
                   No documents currently in the verification queue.
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Listings & Opportunities Tab */}
+        {tab === 'listings' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-soft space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#102A43]">Marketplace Listings Control</h3>
+                <p className="text-xs text-slate-500">Superadmin oversight of all posted driver opportunities in Nairobi.</p>
+              </div>
+              <Badge variant="yellow" size="sm">{listings.length} Total Listings</Badge>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={listingSearch}
+                onChange={e => setListingSearch(e.target.value)}
+                placeholder="Search listings by title, sub-county, partner..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#102A43] bg-slate-50"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {listings.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">No opportunities published yet.</div>
+              ) : (
+                listings
+                  .filter(l => !listingSearch || l.title?.toLowerCase().includes(listingSearch.toLowerCase()) || l.subcounty?.toLowerCase().includes(listingSearch.toLowerCase()))
+                  .map(l => (
+                    <div key={l.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-[#102A43] truncate">{l.title}</span>
+                          <Badge variant={l.status === 'PUBLISHED' ? 'verified' : l.status === 'HIRED' ? 'match' : 'neutral'} size="sm">
+                            {l.status}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                          <span>Target: <strong className="text-slate-800">{formatKes(l.targetAmountKes)}/day</strong></span>
+                          <span>Deposit: <strong className="text-slate-800">{formatKes(l.depositAmountKes)}</strong></span>
+                          <span>Location: {l.subcounty || 'Nairobi'}</span>
+                          <span>Partner: {l.partner?.fullName || 'Verified Partner'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            const newStatus = l.status === 'PUBLISHED' ? 'PAUSED' : 'PUBLISHED';
+                            await marketplaceStore.updateListing(l.id, { status: newStatus });
+                            showNotification('success', `Listing status updated to ${newStatus}`);
+                          }}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                            l.status === 'PUBLISHED'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {l.status === 'PUBLISHED' ? 'Pause Listing' : 'Publish Listing'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* M-Pesa Finance & Monetization Audit Tab */}
+        {tab === 'finance' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-soft space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#102A43]">M-Pesa Finance &amp; Revenue Audit</h3>
+                <p className="text-xs text-slate-500">Track all unlock fees, verified driver trust badges, and partner listing boosts.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="verified" size="sm">
+                  Total Collected: {formatKes(transactions.reduce((sum, t) => sum + (t.amountKes || 0), 0))}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Finance Revenue KPI Tiles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 space-y-1">
+                <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Total M-Pesa Revenue</span>
+                <span className="text-2xl font-black text-emerald-900">
+                  {formatKes(transactions.reduce((sum, t) => sum + (t.amountKes || 0), 0))}
+                </span>
+                <span className="text-[10px] text-emerald-700 block">From {transactions.length} total payments</span>
+              </div>
+              <div className="bg-blue-50/60 border border-blue-200 rounded-2xl p-4 space-y-1">
+                <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider block">Contact Unlocks</span>
+                <span className="text-2xl font-black text-blue-900">
+                  {transactions.filter(t => t.serviceType === 'DRIVER_CONTACT_UNLOCK' || t.serviceType === 'PARTNER_APPLICANT_UNLOCK').length}
+                </span>
+                <span className="text-[10px] text-blue-700 block">Driver &amp; Partner Fast-Tracks</span>
+              </div>
+              <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 space-y-1">
+                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Trust Badges &amp; Boosts</span>
+                <span className="text-2xl font-black text-amber-900">
+                  {transactions.filter(t => t.serviceType === 'DRIVER_KYC_VERIFICATION' || t.serviceType === 'PARTNER_LISTING_BOOST').length}
+                </span>
+                <span className="text-[10px] text-amber-700 block">Premium fleet monetizations</span>
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={financeSearch}
+                onChange={e => setFinanceSearch(e.target.value)}
+                placeholder="Search by M-Pesa receipt, phone, description..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#102A43] bg-slate-50"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {transactions.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  No M-Pesa transactions recorded yet. Payments completed via the M-Pesa modal will appear here in real-time.
+                </div>
+              ) : (
+                transactions
+                  .filter(t => {
+                    if (!financeSearch.trim()) return true;
+                    const q = financeSearch.toLowerCase();
+                    return (
+                      t.mpesaReceiptNumber?.toLowerCase().includes(q) ||
+                      t.phoneNumber?.includes(q) ||
+                      t.description?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(t => (
+                    <div key={t.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-xs bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-900">
+                            {t.mpesaReceiptNumber}
+                          </span>
+                          <span className="font-bold text-sm text-[#102A43]">{t.description}</span>
+                          <Badge variant="verified" size="sm">{t.status}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                          <span>Phone: <strong className="text-slate-800">{t.phoneNumber}</strong></span>
+                          <span>Role: {t.userRole}</span>
+                          <span>Date: {formatDateEAT(t.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-black text-emerald-800 block">
+                          +{formatKes(t.amountKes)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">Safaricom Confirmed</span>
+                      </div>
+                    </div>
+                  ))
               )}
             </div>
           </div>

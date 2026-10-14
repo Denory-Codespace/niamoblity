@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Clock,
 } from 'lucide-react';
+import { marketplaceStore } from '@/lib/db/store';
 
 interface MpesaModalProps {
   isOpen: boolean;
@@ -81,6 +82,20 @@ export function MpesaModal({
 
       setPaymentResult(result);
       setStatus('SUCCESS');
+
+      // Record transaction into store & broadcast
+      marketplaceStore.recordTransaction({
+        userId,
+        userRole,
+        serviceType,
+        amountKes: config.amountKes,
+        phoneNumber: formatted,
+        mpesaReceiptNumber: result.mpesaReceiptNumber,
+        referenceId,
+        status: 'COMPLETED',
+        description: config.title,
+      });
+
       onSuccess(result);
     } catch (err: any) {
       setStatus('ERROR');
